@@ -63,7 +63,7 @@ export async function POST(
     await prisma.notification.create({
       data: {
         userId: verification.userId,
-        type: "VERIFICATION_APPROVED",
+        type: "VERIFICATION_APPROVED" as const,
         title: "تم التحقق من هويتك",
         message: "تم قبول طلب التحقق من الهوية. يمكنك الآن استخدام جميع ميزات المنصة",
         link: "/profile",

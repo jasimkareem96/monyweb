@@ -93,14 +93,14 @@ export async function POST(
     await createNotifications([
       {
         userId: order.merchantId,
-        type: "ORDER_COMPLETED",
+        type: "ORDER_COMPLETED" as const,
         title: "تم إكمال الطلب",
         message: `تم تأكيد استلام الطلب #${order.id.slice(0, 8)} من قبل المشتري`,
         link: `/orders/${order.id}`,
       },
       {
         userId: order.buyerId,
-        type: "ORDER_COMPLETED",
+        type: "ORDER_COMPLETED" as const,
         title: "تم إكمال الطلب",
         message: `تم تأكيد استلام الطلب #${order.id.slice(0, 8)} بنجاح`,
         link: `/orders/${order.id}`,

@@ -65,7 +65,7 @@ export async function POST(
     await prisma.notification.create({
       data: {
         userId: verification.userId,
-        type: "VERIFICATION_REJECTED",
+        type: "VERIFICATION_REJECTED" as const,
         title: "تم رفض طلب التحقق",
         message: `تم رفض طلب التحقق من الهوية. السبب: ${rejectionReason}`,
         link: "/profile/verify",

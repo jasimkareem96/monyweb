@@ -12,6 +12,8 @@ export type NotificationType =
   | "ORDER_CANCELLED"
   | "OFFER_APPROVED"
   | "OFFER_REJECTED"
+  | "VERIFICATION_APPROVED"
+  | "VERIFICATION_REJECTED"
 
 export interface CreateNotificationParams {
   userId: string

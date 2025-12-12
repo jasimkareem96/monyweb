@@ -198,7 +198,7 @@ export async function POST(
         // Create notification for buyer
         await createNotification({
           userId: order.buyerId,
-          type: "DELIVERY_PROOF_REQUIRED",
+          type: "DELIVERY_PROOF_REQUIRED" as const,
           title: "تم رفع إثبات التسليم",
           message: `تم رفع إثبات التسليم للطلب #${order.id.slice(0, 8)}. يرجى تأكيد الاستلام`,
           link: `/orders/${order.id}`,

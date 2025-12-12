@@ -196,7 +196,7 @@ export async function POST(
     // Create notification for merchant
     await createNotification({
       userId: order.merchantId,
-      type: "ORDER_STATUS_CHANGED",
+      type: "ORDER_STATUS_CHANGED" as const,
       title: "تم استلام الدفع",
       message: `تم استلام إثبات الدفع للطلب #${order.id.slice(0, 8)}. يرجى البدء بتنفيذ العملية`,
       link: `/orders/${order.id}`,

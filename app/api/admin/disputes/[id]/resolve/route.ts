@@ -109,14 +109,14 @@ export async function POST(
       await createNotifications([
         {
           userId: order.buyerId,
-          type: "DISPUTE_RESOLVED",
+          type: "DISPUTE_RESOLVED" as const,
           title: "تم حل النزاع",
           message: `تم حل النزاع على الطلب #${order.id.slice(0, 8)} لصالحك. سيتم إرجاع المبلغ`,
           link: `/orders/${order.id}`,
         },
         {
           userId: order.merchantId,
-          type: "DISPUTE_RESOLVED",
+          type: "DISPUTE_RESOLVED" as const,
           title: "تم حل النزاع",
           message: `تم حل النزاع على الطلب #${order.id.slice(0, 8)} لصالح المشتري`,
           link: `/orders/${order.id}`,
@@ -172,14 +172,14 @@ export async function POST(
       await createNotifications([
         {
           userId: order.buyerId,
-          type: "DISPUTE_RESOLVED",
+          type: "DISPUTE_RESOLVED" as const,
           title: "تم حل النزاع",
           message: `تم حل النزاع على الطلب #${order.id.slice(0, 8)} لصالح التاجر`,
           link: `/orders/${order.id}`,
         },
         {
           userId: order.merchantId,
-          type: "DISPUTE_RESOLVED",
+          type: "DISPUTE_RESOLVED" as const,
           title: "تم حل النزاع",
           message: `تم حل النزاع على الطلب #${order.id.slice(0, 8)} لصالحك. سيتم إطلاق الأموال`,
           link: `/orders/${order.id}`,
