@@ -1,0 +1,264 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums converted to String for SQLite compatibility
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  name          String?
+  password      String
+  phone         String?     // رقم الهاتف
+  profileImage  String?     // صورة الملف الشخصي
+  role          String      @default("BUYER")
+  isVerified    Boolean     @default(false)
+  isBlocked     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Merchant specific
+  merchantProfile MerchantProfile?
+  
+  // Orders
+  ordersAsBuyer   Order[]    @relation("BuyerOrders")
+  ordersAsMerchant Order[]   @relation("MerchantOrders")
+  
+  // Disputes
+  disputesAsBuyer    Dispute[] @relation("BuyerDisputes")
+  disputesAsMerchant Dispute[] @relation("MerchantDisputes")
+  
+  // Ratings
+  ratingsGiven   Rating[]   @relation("Rater")
+  ratingsReceived Rating[] @relation("Rated")
+  
+  // Notifications
+  notifications   Notification[]
+  
+  // Verification
+  verification    Verification?
+}
+
+model MerchantProfile {
+  id              String       @id @default(cuid())
+  userId          String       @unique
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  businessName    String?
+  phone           String?
+  country         String?
+  isOnline        Boolean      @default(false)
+  tier            String      @default("BRONZE")
+  totalOrders     Int          @default(0)
+  completedOrders Int          @default(0)
+  averageRating   Float        @default(0)
+  totalRating     Float        @default(0)
+  ratingCount     Int          @default(0)
+  lastOfferCreatedAt DateTime? // آخر وقت تم فيه إنشاء عرض
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  offers          Offer[]
+  
+  @@index([userId])
+}
+
+model Offer {
+  id              String      @id @default(cuid())
+  merchantId      String
+  merchant        MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  offerType       String
+  priceRate       Float       // سعر الصرف
+  minAmount       Float       // الحد الأدنى
+  maxAmount       Float       // الحد الأعلى
+  speed           String      // سرعة التنفيذ
+  description     String?
+  isActive        Boolean     @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  orders          Order[]
+  
+  @@index([merchantId])
+  @@index([isActive])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  
+  offerId         String
+  offer           Offer       @relation(fields: [offerId], references: [id])
+  
+  buyerId         String
+  buyer           User        @relation("BuyerOrders", fields: [buyerId], references: [id])
+  
+  merchantId      String
+  merchant        User        @relation("MerchantOrders", fields: [merchantId], references: [id])
+  
+  amount          Float       // المبلغ المطلوب
+  exchangeRate    Float       // سعر الصرف وقت الطلب
+  totalAmount     Float       // المبلغ الإجمالي
+  
+  status          String      @default("PENDING_QUOTE")
+  
+  // Escrow amounts
+  grossIn         Float?      // المبلغ الإجمالي المستلم
+  paypalFeeIn     Float?      // رسوم PayPal على الاستلام
+  netIn           Float?      // صافي بعد رسوم الاستلام
+  platformFee     Float?      // عمولة المنصة (1%)
+  merchantReceivable Float?   // المبلغ المستحق للتاجر
+  paypalFeeOut    Float?      // رسوم PayPal عند الإرسال
+  merchantNetFinal Float?     // المبلغ النهائي للتاجر
+  
+  // Buyer Evidence
+  buyerBeforePaymentProof  String?  // URL للصورة
+  buyerAfterPaymentProof   String?  // URL للصورة
+  buyerConfirmationText    String?  // نص التأكيد
+  
+  // Merchant Evidence
+  merchantDeliveryProof    String?  // URL للصورة
+  merchantConfirmationText String?  // نص التأكيد
+  
+  // Transaction IDs
+  paypalTransactionId      String?
+  merchantTransactionId    String?
+  
+  // Buyer confirmation
+  buyerConfirmedReceived   Boolean? @default(false)
+  buyerRejectedReason      String?
+  
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  expiredAt       DateTime?
+  
+  dispute         Dispute?
+  rating          Rating?
+  
+  @@index([buyerId])
+  @@index([merchantId])
+  @@index([status])
+  @@index([offerId])
+}
+
+model Dispute {
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  buyerId         String
+  buyer           User          @relation("BuyerDisputes", fields: [buyerId], references: [id])
+  
+  merchantId      String
+  merchant        User          @relation("MerchantDisputes", fields: [merchantId], references: [id])
+  
+  reason          String        // سبب النزاع
+  buyerStatement  String?       // بيان المشتري
+  merchantStatement String?     // بيان التاجر
+  
+  status          String        @default("PENDING")
+  
+  // Additional evidence
+  additionalEvidence String?    // JSON array of URLs
+  
+  adminNotes      String?
+  resolvedBy      String?       // Admin ID
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  resolvedAt      DateTime?
+  
+  @@index([status])
+  @@index([orderId])
+}
+
+model Rating {
+  id              String      @id @default(cuid())
+  orderId         String      @unique
+  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  raterId         String      // من يقيم (المشتري)
+  rater           User        @relation("Rater", fields: [raterId], references: [id])
+  
+  ratedId         String      // من يُقيم (التاجر)
+  rated           User        @relation("Rated", fields: [ratedId], references: [id])
+  
+  rating          Int         // 1-5
+  comment         String?
+  
+  createdAt       DateTime    @default(now())
+  
+  @@index([ratedId])
+  @@index([orderId])
+}
+
+model PlatformSettings {
+  id              String      @id @default(cuid())
+  platformFee     Float       @default(0.01) // 1%
+  minOfferAmount  Float       @default(10)
+  maxOfferAmount  Float       @default(10000)
+  evidenceRetentionDays Int   @default(180)
+  
+  updatedAt       DateTime    @updatedAt
+}
+
+model Notification {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type            String      // ORDER_STATUS_CHANGED, DISPUTE_CREATED, MESSAGE_RECEIVED, RATING_RECEIVED, etc.
+  title           String
+  message         String
+  link            String?     // URL to related page
+  
+  isRead          Boolean     @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime    @default(now())
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model Verification {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Identity Information
+  idType          String      // "NATIONAL_ID", "PASSPORT", "DRIVER_LICENSE"
+  idImage         String      // URL to ID image
+  selfieImage     String      // URL to selfie image
+  fullName        String      // الاسم الثلاثي
+  address         String      // عنوان السكن
+  
+  // Status
+  status          String      @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  rejectionReason String?     // سبب الرفض
+  
+  // Admin Review
+  reviewedBy      String?     // Admin ID
+  reviewedAt      DateTime?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+}
+
