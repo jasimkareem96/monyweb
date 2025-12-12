@@ -29,14 +29,19 @@ export async function getCSRFToken(): Promise<string> {
       return res.json()
     })
     .then((data) => {
-      csrfToken = data.csrfToken
+      const token = data.csrfToken
+      if (!token || typeof token !== "string") {
+        throw new Error("Invalid CSRF token received")
+      }
+      csrfToken = token
       tokenPromise = null
-      return csrfToken
+      return token
     })
     .catch((error) => {
       tokenPromise = null
+      csrfToken = null
       throw error
-    })
+    }) as Promise<string>
 
   return tokenPromise
 }
