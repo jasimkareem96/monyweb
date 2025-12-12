@@ -157,7 +157,11 @@ export function OrderActions({
         {isAdmin && order.status === "WAITING_BUYER_CONFIRM" && order.dispute && (
           <Button
             className="w-full"
-            onClick={() => router.push(`/admin/disputes/${order.dispute.id}`)}
+            onClick={() => {
+              if (order.dispute) {
+                router.push(`/admin/disputes/${order.dispute.id}`)
+              }
+            }}
           >
             مراجعة النزاع
           </Button>
