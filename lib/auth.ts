@@ -97,9 +97,9 @@ export const authOptions: NextAuthOptions = {
           token.id = user.id || ""
           token.role = user.role || "BUYER"
           token.email = user.email || ""
-          token.name = user.name || null
-          token.phone = user.phone || null
-          token.profileImage = user.profileImage || null
+          token.name = user.name ?? undefined
+          token.phone = user.phone ?? undefined
+          token.profileImage = user.profileImage ?? undefined
         }
         // Ensure token always has required fields
         if (!token.id) token.id = ""
@@ -129,7 +129,7 @@ export const authOptions: NextAuthOptions = {
               id: "",
               email: "",
               role: "BUYER",
-              name: null,
+              name: undefined,
             }
           } as any
         }
@@ -141,7 +141,7 @@ export const authOptions: NextAuthOptions = {
             id: "",
             email: "",
             role: "BUYER",
-            name: null,
+            name: undefined,
           } as any
         }
         
@@ -162,13 +162,13 @@ export const authOptions: NextAuthOptions = {
           session.user.email = token.email as string
         }
         if (token.name !== undefined) {
-          session.user.name = token.name as string | null
+          session.user.name = token.name as string | undefined
         }
         if (token.phone !== undefined) {
-          ;(session.user as any).phone = token.phone as string | null
+          ;(session.user as any).phone = token.phone as string | undefined
         }
         if (token.profileImage !== undefined) {
-          ;(session.user as any).profileImage = token.profileImage as string | null
+          ;(session.user as any).profileImage = token.profileImage as string | undefined
         }
         
         return session
@@ -182,7 +182,7 @@ export const authOptions: NextAuthOptions = {
             id: "",
             email: "",
             role: "BUYER",
-            name: null,
+            name: undefined,
           }
         } as any
       }
