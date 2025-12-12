@@ -123,7 +123,7 @@ export default async function OrdersPage() {
                             </p>
                           </div>
                         )}
-                        {session.user.role === "MERCHANT" && (
+                        {session.user.role === "MERCHANT" && "buyer" in order && (
                           <div>
                             <p className="text-gray-600">المشتري</p>
                             <p className="font-semibold">{order.buyer.name}</p>
