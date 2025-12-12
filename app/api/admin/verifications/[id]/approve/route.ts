@@ -7,9 +7,12 @@ import { validateCSRF } from "@/lib/csrf"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Await params in Next.js 14 App Router
+    const { id } = await params
+
     // Validate CSRF token
     const csrfValidation = await validateCSRF(request)
     if (!csrfValidation.valid) {
@@ -29,7 +32,7 @@ export async function POST(
     }
 
     const verification = await prisma.verification.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { user: true },
     })
 
@@ -42,7 +45,7 @@ export async function POST(
 
     // Update verification status
     await prisma.verification.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: "APPROVED",
         reviewedBy: session.user.id,

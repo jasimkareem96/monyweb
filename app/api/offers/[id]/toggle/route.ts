@@ -5,9 +5,12 @@ import { prisma } from "@/lib/prisma"
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Await params in Next.js 14 App Router
+    const { id: offerId } = await params
+
     const session = await getServerSession(authOptions)
 
     if (!session || session.user.role !== "MERCHANT") {
@@ -16,8 +19,6 @@ export async function POST(
         { status: 401 }
       )
     }
-
-    const offerId = params.id
 
     console.log("Toggle offer request:", { offerId, userId: session.user.id })
 

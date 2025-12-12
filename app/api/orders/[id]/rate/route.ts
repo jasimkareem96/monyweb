@@ -8,12 +8,15 @@ import { withRateLimit } from "@/middleware/rate-limit"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return withRateLimit(
     request,
     async () => {
       try {
+        // Await params in Next.js 14 App Router
+        const { id } = await params
+
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
         if (!csrfValidation.valid) {
@@ -55,7 +58,7 @@ export async function POST(
 
         // Get order
         const order = await prisma.order.findUnique({
-          where: { id: params.id },
+          where: { id },
         })
 
         if (!order || order.buyerId !== session.user.id) {
@@ -74,7 +77,7 @@ export async function POST(
 
         // Check if already rated
         const existingRating = await prisma.rating.findUnique({
-          where: { orderId: params.id },
+          where: { orderId: id },
         })
 
         if (existingRating) {
@@ -87,7 +90,7 @@ export async function POST(
         // Create rating
         await prisma.rating.create({
           data: {
-            orderId: params.id,
+            orderId: id,
             raterId: session.user.id,
             ratedId: order.merchantId,
             rating: parseInt(rating.toString()),

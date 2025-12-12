@@ -29,12 +29,15 @@ const DANGEROUS_EXTENSIONS = [
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return withRateLimit(
     request,
     async () => {
       try {
+        // Await params in Next.js 14 App Router
+        const { id } = await params
+
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
         if (!csrfValidation.valid) {
@@ -144,7 +147,7 @@ export async function POST(
 
     // Get order
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!order || order.buyerId !== session.user.id) {
@@ -162,7 +165,7 @@ export async function POST(
     }
 
         // Save files
-        const uploadDir = join(process.cwd(), "public", "uploads", "evidence", params.id)
+        const uploadDir = join(process.cwd(), "public", "uploads", "evidence", id)
         if (!existsSync(uploadDir)) {
           await mkdir(uploadDir, { recursive: true })
         }
@@ -178,12 +181,12 @@ export async function POST(
         await writeFile(beforePath, beforeProcessed)
         await writeFile(afterPath, afterProcessed)
 
-    const beforeUrl = `/uploads/evidence/${params.id}/${beforeFileName}`
-    const afterUrl = `/uploads/evidence/${params.id}/${afterFileName}`
+    const beforeUrl = `/uploads/evidence/${id}/${beforeFileName}`
+    const afterUrl = `/uploads/evidence/${id}/${afterFileName}`
 
     // Update order
     await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         buyerBeforePaymentProof: beforeUrl,
         buyerAfterPaymentProof: afterUrl,

@@ -10,12 +10,15 @@ import { withRateLimit } from "@/middleware/rate-limit"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return withRateLimit(
     request,
     async () => {
       try {
+        // Await params in Next.js 14 App Router
+        const { id } = await params
+
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
         if (!csrfValidation.valid) {
@@ -62,7 +65,7 @@ export async function POST(
 
     // Get dispute
     const dispute = await prisma.dispute.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         order: true,
       },
@@ -96,7 +99,7 @@ export async function POST(
       })
 
       await prisma.dispute.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           status: "RESOLVED_BUYER",
           adminNotes: notes,
@@ -159,7 +162,7 @@ export async function POST(
       }
 
       await prisma.dispute.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           status: "RESOLVED_MERCHANT",
           adminNotes: notes,

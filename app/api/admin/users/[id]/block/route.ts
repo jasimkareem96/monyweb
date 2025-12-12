@@ -8,12 +8,15 @@ import { withRateLimit } from "@/middleware/rate-limit"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return withRateLimit(
     request,
     async () => {
       try {
+        // Await params in Next.js 14 App Router
+        const { id } = await params
+
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
         if (!csrfValidation.valid) {
@@ -30,7 +33,7 @@ export async function POST(
         }
 
         // Validate user ID
-        if (!params.id || typeof params.id !== 'string' || params.id.trim().length === 0) {
+        if (!id || typeof id !== 'string' || id.trim().length === 0) {
           return NextResponse.json(
             { error: "معرف المستخدم غير صحيح" },
             { status: 400 }
@@ -38,7 +41,7 @@ export async function POST(
         }
 
         // Prevent blocking yourself
-        if (params.id === session.user.id) {
+        if (id === session.user.id) {
           return NextResponse.json(
             { error: "لا يمكنك حظر نفسك" },
             { status: 400 }
@@ -47,7 +50,7 @@ export async function POST(
 
         // Check if user exists
         const user = await prisma.user.findUnique({
-          where: { id: params.id },
+          where: { id },
         })
 
         if (!user) {
@@ -58,7 +61,7 @@ export async function POST(
         }
 
         await prisma.user.update({
-          where: { id: params.id },
+          where: { id },
           data: { isBlocked: true },
         })
 

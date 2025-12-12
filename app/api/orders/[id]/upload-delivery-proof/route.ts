@@ -29,12 +29,15 @@ const DANGEROUS_EXTENSIONS = [
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return withRateLimit(
     request,
     async () => {
       try {
+        // Await params in Next.js 14 App Router
+        const { id } = await params
+
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
         if (!csrfValidation.valid) {
@@ -152,7 +155,7 @@ export async function POST(
 
         // Get order
         const order = await prisma.order.findUnique({
-          where: { id: params.id },
+          where: { id },
         })
 
         if (!order || order.merchantId !== session.user.id) {
@@ -170,7 +173,7 @@ export async function POST(
         }
 
         // Save file
-        const uploadDir = join(process.cwd(), "public", "uploads", "evidence", params.id)
+        const uploadDir = join(process.cwd(), "public", "uploads", "evidence", id)
         if (!existsSync(uploadDir)) {
           await mkdir(uploadDir, { recursive: true })
         }
@@ -182,11 +185,11 @@ export async function POST(
 
         await writeFile(filePath, processedImage)
 
-        const fileUrl = `/uploads/evidence/${params.id}/${fileName}`
+        const fileUrl = `/uploads/evidence/${id}/${fileName}`
 
         // Update order
         await prisma.order.update({
-          where: { id: params.id },
+          where: { id },
           data: {
             merchantDeliveryProof: fileUrl,
             merchantTransactionId: transactionId,

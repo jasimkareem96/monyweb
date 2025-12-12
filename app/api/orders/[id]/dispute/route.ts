@@ -9,12 +9,15 @@ import { withRateLimit } from "@/middleware/rate-limit"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return withRateLimit(
     request,
     async () => {
       try {
+        // Await params in Next.js 14 App Router
+        const { id } = await params
+
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
         if (!csrfValidation.valid) {
@@ -60,7 +63,7 @@ export async function POST(
 
     // Get order
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!order || order.buyerId !== session.user.id) {
@@ -79,7 +82,7 @@ export async function POST(
 
     // Check if dispute already exists
     const existingDispute = await prisma.dispute.findUnique({
-      where: { orderId: params.id },
+      where: { orderId: id },
     })
 
     if (existingDispute) {
@@ -92,7 +95,7 @@ export async function POST(
     // Create dispute
     await prisma.dispute.create({
       data: {
-        orderId: params.id,
+        orderId: id,
         buyerId: session.user.id,
         merchantId: order.merchantId,
         reason,
@@ -130,7 +133,7 @@ export async function POST(
         type: "DISPUTE_CREATED" as const,
         title: "نزاع جديد يحتاج للمراجعة",
         message: `تم رفع نزاع على الطلب #${order.id.slice(0, 8)}`,
-        link: `/admin/disputes/${params.id}`,
+          link: `/admin/disputes/${id}`,
       })),
     ])
 

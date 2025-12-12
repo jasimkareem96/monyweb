@@ -5,16 +5,19 @@ import { markNotificationAsRead } from "@/lib/notifications"
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Await params in Next.js 14 App Router
+    const { id } = await params
+
     const session = await getServerSession(authOptions)
 
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 })
     }
 
-    await markNotificationAsRead(params.id, session.user.id)
+    await markNotificationAsRead(id, session.user.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

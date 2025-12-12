@@ -8,12 +8,15 @@ import { withRateLimit } from "@/middleware/rate-limit"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return withRateLimit(
     request,
     async () => {
       try {
+        // Await params in Next.js 14 App Router
+        const { id } = await params
+
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
         if (!csrfValidation.valid) {
@@ -34,7 +37,7 @@ export async function POST(
 
     // Get order
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!order) {
@@ -66,7 +69,7 @@ export async function POST(
 
     // Update order status
     await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: "CANCELLED",
         cancelledAt: new Date(),
