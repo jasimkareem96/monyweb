@@ -120,14 +120,14 @@ export async function POST(
     await createNotifications([
       {
         userId: order.merchantId,
-        type: "DISPUTE_CREATED",
+        type: "DISPUTE_CREATED" as const,
         title: "تم رفع نزاع جديد",
         message: `تم رفع نزاع على الطلب #${order.id.slice(0, 8)} من قبل المشتري`,
         link: `/orders/${order.id}`,
       },
       ...admins.map((admin) => ({
         userId: admin.id,
-        type: "DISPUTE_CREATED",
+        type: "DISPUTE_CREATED" as const,
         title: "نزاع جديد يحتاج للمراجعة",
         message: `تم رفع نزاع على الطلب #${order.id.slice(0, 8)}`,
         link: `/admin/disputes/${params.id}`,
