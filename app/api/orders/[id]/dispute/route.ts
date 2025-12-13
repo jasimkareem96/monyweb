@@ -106,7 +106,7 @@ export async function POST(
 
     // Update order - buyer rejected
     await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         buyerConfirmedReceived: false,
         buyerRejectedReason: reason,
