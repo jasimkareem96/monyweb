@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import Image from "next/image"
 import { Download, Eye, CheckCircle, XCircle, Upload } from "lucide-react"
 
 interface Order {
@@ -44,11 +43,6 @@ export function OrderEvidence({
       router.push("/auth/signin?callbackUrl=" + encodeURIComponent(window.location.pathname))
     }
   }, [status, router])
-
-  // Don't render if not authenticated
-  if (status === "unauthenticated" || !session) {
-    return null
-  }
 
   // Handle mounting for portal
   useEffect(() => {
@@ -93,6 +87,11 @@ export function OrderEvidence({
   
   // Check if order is in a state that allows uploads
   const isOrderActive = !["CANCELLED", "COMPLETED", "EXPIRED"].includes(order.status)
+
+  // Don't render if not authenticated (AFTER hooks)
+  if (status === "unauthenticated" || !session) {
+    return null
+  }
 
   if (!canView) return null
 
