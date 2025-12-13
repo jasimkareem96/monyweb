@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run db:generate && npm run db:push && npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm ci --no-audit --no-fund",
   "framework": "nextjs",
