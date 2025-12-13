@@ -11,6 +11,7 @@ import { validateCSRF } from "@/lib/csrf"
 import { withRateLimit } from "@/middleware/rate-limit"
 import { fileTypeFromBuffer } from "file-type"
 import sharp from "sharp"
+import { randomBytes } from "crypto"
 
 // Allowed MIME types for images
 const ALLOWED_MIME_TYPES = [
@@ -37,6 +38,14 @@ export async function POST(
       try {
         // Await params in Next.js 14 App Router
         const { id } = await params
+
+        // Basic path traversal guard (id is used as folder name)
+        if (!id || id.includes("..") || id.includes("/") || id.includes("\\")) {
+          return NextResponse.json(
+            { error: "معرف الطلب غير صحيح" },
+            { status: 400 }
+          )
+        }
 
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
@@ -171,7 +180,7 @@ export async function POST(
         }
 
         const timestamp = Date.now()
-        const randomString = Math.random().toString(36).substring(2, 15)
+        const randomString = randomBytes(12).toString("hex")
         const beforeFileName = `before-${timestamp}-${randomString}.jpg`
         const afterFileName = `after-${timestamp}-${randomString}.jpg`
 

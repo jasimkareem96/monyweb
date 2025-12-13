@@ -9,6 +9,7 @@ import sharp from "sharp"
 import { fileTypeFromBuffer } from "file-type"
 import { withRateLimit } from "@/middleware/rate-limit"
 import { validateCSRF } from "@/lib/csrf"
+import { randomBytes } from "crypto"
 
 // Allowed MIME types for images
 const ALLOWED_MIME_TYPES = [
@@ -27,6 +28,9 @@ const DANGEROUS_EXTENSIONS = [
   '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.js',
   '.jar', '.php', '.asp', '.aspx', '.jsp', '.html', '.htm', '.sh'
 ]
+
+// Allowed upload "type" values (used only for naming / categorization)
+const ALLOWED_UPLOAD_TYPES = new Set(["profile", "id", "selfie"])
 
 export async function POST(request: NextRequest) {
   return withRateLimit(
@@ -54,6 +58,14 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData()
         const file = formData.get("file") as File
         const type = formData.get("type") as string
+
+        // Validate upload type (prevent path traversal / weird filenames)
+        if (!type || typeof type !== "string" || !ALLOWED_UPLOAD_TYPES.has(type)) {
+          return NextResponse.json(
+            { error: "نوع الرفع غير صحيح" },
+            { status: 400 }
+          )
+        }
 
         if (!file) {
           return NextResponse.json(
@@ -141,7 +153,7 @@ export async function POST(request: NextRequest) {
 
         // Generate unique filename (always use .jpg for consistency and security)
         const timestamp = Date.now()
-        const randomString = Math.random().toString(36).substring(2, 15)
+        const randomString = randomBytes(12).toString("hex")
         const filename = `${type}-${session.user.id}-${timestamp}-${randomString}.jpg`
         const filepath = join(uploadsDir, filename)
 

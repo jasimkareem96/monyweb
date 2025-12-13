@@ -73,6 +73,38 @@ export async function validateCSRF(
     return { valid: true }
   }
 
+  // Extra hardening: verify Origin/Referer for state-changing requests in production.
+  // This doesn't replace token validation, but reduces risk from cross-site requests.
+  if (process.env.NODE_ENV === "production") {
+    const allowedOrigins = (
+      process.env.ALLOWED_ORIGINS ||
+      process.env.NEXTAUTH_URL ||
+      "http://localhost:3000"
+    )
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+    const originHeader = request.headers.get("origin")
+    const refererHeader = request.headers.get("referer")
+
+    const normalizeOrigin = (value: string) => {
+      try {
+        return new URL(value).origin
+      } catch {
+        return null
+      }
+    }
+
+    const requestOrigin =
+      (originHeader && normalizeOrigin(originHeader)) ||
+      (refererHeader && normalizeOrigin(refererHeader))
+
+    if (!requestOrigin || !allowedOrigins.includes(requestOrigin)) {
+      return { valid: false, error: "Invalid request origin" }
+    }
+  }
+
   // Get token from header
   const tokenFromHeader = request.headers.get("X-CSRF-Token")
   

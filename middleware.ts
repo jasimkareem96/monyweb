@@ -7,7 +7,10 @@ import type { NextRequest } from "next/server"
  */
 function addSecurityHeaders(response: NextResponse, request: NextRequest) {
   const isProduction = process.env.NODE_ENV === "production"
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || ["http://localhost:3000"]
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
 
   // Get origin from request
   const origin = request.headers.get("origin") || ""
@@ -43,11 +46,22 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest) {
   response.headers.set("Content-Security-Policy", csp)
 
   // CORS headers for API routes (if needed)
-  if (origin && allowedOrigins.some(allowed => origin.includes(allowed.replace(/^https?:\/\//, "")))) {
-    response.headers.set("Access-Control-Allow-Origin", origin)
+  // NOTE: Middleware does not run for /api by matcher, but keep this correct for any future use.
+  if (origin) {
+    let requestOrigin: string | null = null
+    try {
+      requestOrigin = new URL(origin).origin
+    } catch {
+      requestOrigin = null
+    }
+
+    if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+      response.headers.set("Vary", "Origin")
+      response.headers.set("Access-Control-Allow-Origin", requestOrigin)
     response.headers.set("Access-Control-Allow-Credentials", "true")
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
     response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
+    }
   }
 
   return response
