@@ -8,6 +8,9 @@ import { createNotifications } from "@/lib/notifications"
 import { validateCSRF } from "@/lib/csrf"
 import { withRateLimit } from "@/middleware/rate-limit"
 
+// Force dynamic rendering - this route requires authentication and database access
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
