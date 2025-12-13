@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { createCSRFResponse } from "@/lib/csrf"
 
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+export const revalidate = 0
+
 /**
  * Get CSRF token endpoint
  * Only authenticated users can get CSRF tokens
@@ -20,7 +24,9 @@ export async function GET() {
 
     return await createCSRFResponse()
   } catch (error: any) {
-    console.error("CSRF token error:", error)
+    if (process.env.NODE_ENV !== "production") {
+      console.error("CSRF token error:", error)
+    }
     return NextResponse.json(
       { error: "حدث خطأ أثناء إنشاء CSRF token" },
       { status: 500 }

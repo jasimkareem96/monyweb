@@ -11,6 +11,7 @@ import axios from "axios"
 import { useSession } from "next-auth/react"
 import { useEffect } from "react"
 import { useParams } from "next/navigation"
+import Image from "next/image"
 
 const CONFIRMATION_TEXT = "I confirm that I delivered the requested service completely and correctly to the buyer."
 
@@ -138,9 +139,12 @@ export default function DeliveryPage() {
                     </p>
                     {deliveryProof.type.startsWith("image/") && (
                       <div className="mt-2 border rounded-lg p-2 bg-gray-50">
-                        <img
+                        <Image
                           src={URL.createObjectURL(deliveryProof)}
                           alt="Preview"
+                          width={900}
+                          height={450}
+                          unoptimized
                           className="max-w-full h-auto max-h-48 rounded"
                         />
                       </div>

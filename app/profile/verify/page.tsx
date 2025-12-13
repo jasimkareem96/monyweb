@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Camera, Upload, X } from "lucide-react"
 import axios from "axios"
 import { addCSRFToBody, getCSRFToken } from "@/lib/csrf-client"
+import Image from "next/image"
 
 export default function VerifyPage() {
   const { data: session } = useSession()
@@ -278,9 +279,12 @@ export default function VerifyPage() {
                   />
                   {idImage ? (
                     <div className="relative w-full h-full">
-                      <img
+                      <Image
                         src={URL.createObjectURL(idImage)}
                         alt="ID"
+                        width={256}
+                        height={256}
+                        unoptimized
                         className="w-full h-full object-cover rounded-lg"
                       />
                       <button
@@ -357,9 +361,12 @@ export default function VerifyPage() {
 
               {selfieImage && !showCamera && (
                 <div className="relative">
-                  <img
+                  <Image
                     src={selfieImage}
                     alt="Selfie"
+                    width={900}
+                    height={700}
+                    unoptimized
                     className="w-full max-w-md rounded-lg"
                   />
                   <Button

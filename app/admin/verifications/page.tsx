@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import { CheckCircle2, XCircle, Clock, Eye } from "lucide-react"
 import axios from "axios"
 import Link from "next/link"
 import { addCSRFToBody, getCSRFToken } from "@/lib/csrf-client"
+import Image from "next/image"
 
 interface Verification {
   id: string
@@ -43,6 +44,24 @@ export default function VerificationsPage() {
   const [rejectionReason, setRejectionReason] = useState("")
   const [processing, setProcessing] = useState(false)
 
+  const fetchVerifications = useCallback(async () => {
+    try {
+      setLoading(true)
+      const url = filter ? `/api/admin/verifications?status=${filter}` : "/api/admin/verifications"
+      const response = await axios.get(url)
+      setVerifications(response.data.verifications)
+    } catch (error: any) {
+      console.error("Error fetching verifications:", error)
+      toast({
+        title: "حدث خطأ",
+        description: "فشل في جلب طلبات التحقق",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [filter, toast])
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin")
@@ -57,24 +76,7 @@ export default function VerificationsPage() {
     if (session?.user) {
       fetchVerifications()
     }
-  }, [session, status, router, filter])
-
-  const fetchVerifications = async () => {
-    try {
-      const url = filter ? `/api/admin/verifications?status=${filter}` : "/api/admin/verifications"
-      const response = await axios.get(url)
-      setVerifications(response.data.verifications)
-    } catch (error: any) {
-      console.error("Error fetching verifications:", error)
-      toast({
-        title: "حدث خطأ",
-        description: "فشل في جلب طلبات التحقق",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [session, status, router, fetchVerifications])
 
   const handleApprove = async (id: string) => {
     if (!confirm("هل أنت متأكد من الموافقة على هذا الطلب؟")) {
@@ -289,18 +291,24 @@ export default function VerificationsPage() {
                 <div className="flex gap-4 mb-4">
                   <div className="flex-1">
                     <label className="text-sm font-medium text-gray-500 mb-2 block">صورة الهوية</label>
-                    <img
+                    <Image
                       src={verification.idImage}
                       alt="ID"
+                      width={900}
+                      height={450}
+                      unoptimized
                       className="w-full h-48 object-cover rounded-lg border cursor-pointer"
                       onClick={() => window.open(verification.idImage, "_blank")}
                     />
                   </div>
                   <div className="flex-1">
                     <label className="text-sm font-medium text-gray-500 mb-2 block">صورة السيلفي</label>
-                    <img
+                    <Image
                       src={verification.selfieImage}
                       alt="Selfie"
+                      width={900}
+                      height={450}
+                      unoptimized
                       className="w-full h-48 object-cover rounded-lg border cursor-pointer"
                       onClick={() => window.open(verification.selfieImage, "_blank")}
                     />

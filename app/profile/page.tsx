@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import Link from "next/link"
 import axios from "axios"
 import { useToast } from "@/hooks/use-toast"
 import { addCSRFToBody, getCSRFToken } from "@/lib/csrf-client"
+import Image from "next/image"
 
 interface VerificationStatus {
   status: "PENDING" | "APPROVED" | "REJECTED" | null
@@ -42,19 +43,7 @@ export default function ProfilePage() {
     confirmPassword: "",
   })
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/signin")
-      return
-    }
-
-    if (session?.user) {
-      fetchVerificationStatus()
-      loadProfileData()
-    }
-  }, [session, status, router])
-
-  const loadProfileData = () => {
+  const loadProfileData = useCallback(() => {
     if (session?.user) {
       setFormData({
         name: session.user.name || "",
@@ -68,9 +57,9 @@ export default function ProfilePage() {
         setProfileImagePreview((session.user as any).profileImage)
       }
     }
-  }
+  }, [session])
 
-  const fetchVerificationStatus = async () => {
+  const fetchVerificationStatus = useCallback(async () => {
     try {
       const response = await axios.get("/api/verification/status")
       setVerification(response.data)
@@ -79,7 +68,20 @@ export default function ProfilePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/signin")
+      return
+    }
+
+    if (session?.user) {
+      setLoading(true)
+      fetchVerificationStatus()
+      loadProfileData()
+    }
+  }, [session, status, router, fetchVerificationStatus, loadProfileData])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -328,9 +330,12 @@ export default function ProfilePage() {
               <div className="relative">
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                   {profileImagePreview ? (
-                    <img
+                    <Image
                       src={profileImagePreview}
                       alt="Profile"
+                      width={96}
+                      height={96}
+                      unoptimized
                       className="w-full h-full object-cover"
                     />
                   ) : (

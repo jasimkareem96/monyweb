@@ -11,6 +11,7 @@ import axios from "axios"
 import { useSession } from "next-auth/react"
 import { useEffect } from "react"
 import { useParams } from "next/navigation"
+import Image from "next/image"
 
 const CONFIRMATION_TEXT = "I confirm that I am paying for a digital escrowed service. This is not a product purchase. I understand that the payment is final unless the seller fails to deliver the service."
 
@@ -140,9 +141,12 @@ export default function PaymentPage() {
                     </p>
                     {beforePaymentProof.type.startsWith("image/") && (
                       <div className="mt-2 border rounded-lg p-2 bg-gray-50">
-                        <img
+                        <Image
                           src={URL.createObjectURL(beforePaymentProof)}
                           alt="Preview"
+                          width={900}
+                          height={450}
+                          unoptimized
                           className="max-w-full h-auto max-h-48 rounded"
                         />
                       </div>
@@ -171,9 +175,12 @@ export default function PaymentPage() {
                     </p>
                     {afterPaymentProof.type.startsWith("image/") && (
                       <div className="mt-2 border rounded-lg p-2 bg-gray-50">
-                        <img
+                        <Image
                           src={URL.createObjectURL(afterPaymentProof)}
                           alt="Preview"
+                          width={900}
+                          height={450}
+                          unoptimized
                           className="max-w-full h-auto max-h-48 rounded"
                         />
                       </div>

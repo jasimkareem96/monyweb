@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Download, Eye, CheckCircle, XCircle, Upload } from "lucide-react"
+import Image from "next/image"
 
 interface Order {
   id: string
@@ -101,9 +102,12 @@ export function OrderEvidence({
   const ProofImage = ({ src, alt, title }: { src: string; alt: string; title: string }) => (
     <div className="relative group">
       <div className="relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-all">
-        <img
+        <Image
           src={src}
           alt={alt}
+          width={1200}
+          height={800}
+          unoptimized
           className="w-full h-auto max-h-64 object-contain bg-gray-50 cursor-pointer"
           onClick={() => setExpandedImage(src)}
         />
@@ -347,9 +351,12 @@ export function OrderEvidence({
             >
               ✕ إغلاق
             </Button>
-            <img
+            <Image
               src={expandedImage}
               alt="Expanded proof"
+              width={1600}
+              height={1200}
+              unoptimized
               className="max-w-full max-h-[90vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />

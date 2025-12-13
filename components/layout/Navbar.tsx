@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
+import Image from "next/image"
 
 export function Navbar() {
   const { data: session } = useSession()
@@ -45,9 +46,12 @@ export function Navbar() {
               <Link href="/profile" className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                   {(session.user as any).profileImage ? (
-                    <img
+                    <Image
                       src={(session.user as any).profileImage}
                       alt={session.user.name || "Profile"}
+                      width={32}
+                      height={32}
+                      unoptimized
                       className="w-full h-full object-cover"
                     />
                   ) : (

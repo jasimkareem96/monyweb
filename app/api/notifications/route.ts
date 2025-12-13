@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getUserNotifications, getUnreadNotificationCount } from "@/lib/notifications"
 
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+export const revalidate = 0
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -21,7 +25,9 @@ export async function GET() {
       unreadCount,
     })
   } catch (error) {
-    console.error("Get notifications error:", error)
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Get notifications error:", error)
+    }
     return NextResponse.json(
       { error: "حدث خطأ أثناء جلب الإشعارات" },
       { status: 500 }

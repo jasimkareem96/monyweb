@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+export const revalidate = 0
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -44,7 +48,9 @@ export async function GET(request: Request) {
       verifications,
     })
   } catch (error: any) {
-    console.error("Get verifications error:", error)
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Get verifications error:", error)
+    }
     return NextResponse.json(
       { error: error.message || "حدث خطأ أثناء جلب طلبات التحقق" },
       { status: 500 }
