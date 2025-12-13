@@ -8,6 +8,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Use a direct connection for schema operations (db push / migrate) when available.
+  // Recommended on Vercel: DATABASE_URL = Transaction pooler, DIRECT_DATABASE_URL = Direct connection.
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // Enums converted to String for SQLite compatibility
