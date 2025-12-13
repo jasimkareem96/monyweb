@@ -23,10 +23,5 @@ export const prisma = new Proxy(
   }
 ) as unknown as PrismaClient
 
-// In development, keep the singleton on global to prevent hot-reload connection leaks.
-if (process.env.NODE_ENV !== "production") {
-  // Ensure initialization happens only when needed, but keep cache for subsequent uses.
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  globalForPrisma.prisma
-}
+// In development, PrismaClient is cached on globalForPrisma by getClient().
 
