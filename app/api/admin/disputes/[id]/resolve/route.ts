@@ -10,6 +10,9 @@ import { withRateLimit } from "@/middleware/rate-limit"
 
 // Force dynamic rendering - this route requires authentication and database access
 export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+export const runtime = 'nodejs'
+export const revalidate = 0
 
 export async function POST(
   request: NextRequest,

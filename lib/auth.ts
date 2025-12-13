@@ -199,7 +199,7 @@ export const authOptions: NextAuthOptions = {
   secret: (() => {
     const secret = process.env.NEXTAUTH_SECRET
     // Only enforce in production runtime, not during build
-    if (!secret && process.env.NODE_ENV === "production" && typeof window === "undefined" && process.env.VERCEL) {
+    if (!secret && process.env.NODE_ENV === "production" && typeof window === "undefined" && process.env.VERCEL && !process.env.NEXT_PHASE) {
       throw new Error("NEXTAUTH_SECRET must be set in production environment")
     }
     return secret || "dev-secret-key-change-in-production-12345"
