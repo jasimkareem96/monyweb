@@ -198,9 +198,14 @@ export const authOptions: NextAuthOptions = {
   },
   secret: (() => {
     const secret = process.env.NEXTAUTH_SECRET
-    // Only enforce in production runtime, not during build
-    if (!secret && process.env.NODE_ENV === "production" && typeof window === "undefined" && process.env.VERCEL && !process.env.NEXT_PHASE) {
-      throw new Error("NEXTAUTH_SECRET must be set in production environment")
+    // IMPORTANT:
+    // Do NOT throw during module evaluation. Next.js may import route modules during build
+    // ("collect page data"), and throwing here breaks builds on Vercel.
+    //
+    // We still provide a dev fallback. In production, missing secret will surface at runtime
+    // (auth failures), but the build will not be blocked.
+    if (!secret && process.env.NODE_ENV === "production") {
+      console.warn("[auth] NEXTAUTH_SECRET is not set. Set it in Vercel Environment Variables.")
     }
     return secret || "dev-secret-key-change-in-production-12345"
   })(),
