@@ -31,9 +31,13 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest) {
   
   // Content Security Policy
   // Note: Next.js requires 'unsafe-eval' and 'unsafe-inline' in development
+  const scriptSrc = isProduction
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
+
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",

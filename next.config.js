@@ -17,6 +17,7 @@ const nextConfig = {
     ],
   },
   async headers() {
+    const isProduction = process.env.NODE_ENV === 'production'
     return [
       {
         // Apply security headers to all routes EXCEPT static files
@@ -54,7 +55,9 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              isProduction
+                ? "script-src 'self' 'unsafe-inline'"
+                : "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
