@@ -4,6 +4,11 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
 export async function GET() {
+  // Never expose auth/session diagnostics in production
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
   try {
     const session = await getServerSession(authOptions)
     
