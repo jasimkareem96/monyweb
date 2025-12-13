@@ -28,16 +28,53 @@ export default async function OfferDetailPage({
   // Only authenticated buyers can create orders
   const canCreateOrder = session?.user?.role === "BUYER"
 
-  const offer = await prisma.offer.findUnique({
-    where: { id: params.id },
-    include: {
-      merchant: {
-        include: {
-          user: true,
+  let offer: any = null
+  let dbError: string | null = null
+  try {
+    offer = await prisma.offer.findUnique({
+      where: { id: params.id },
+      include: {
+        merchant: {
+          include: {
+            user: true,
+          },
         },
       },
-    },
-  })
+    })
+  } catch (error: any) {
+    console.error("Offer detail DB error:", error)
+    dbError =
+      process.env.NODE_ENV === "production"
+        ? "تعذر تحميل تفاصيل العرض حالياً بسبب مشكلة في قاعدة البيانات. يرجى المحاولة لاحقاً."
+        : error?.message || "Database error"
+  }
+
+  if (dbError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <main className="container mx-auto px-4 py-8">
+          <Card>
+            <CardContent className="py-12 text-center space-y-4">
+              <p className="text-gray-700 font-semibold">تعذر تحميل العرض</p>
+              <p className="text-sm text-gray-600">
+                {dbError}
+                {!process.env.DATABASE_URL ? (
+                  <>
+                    {" "}
+                    (مطلوب ضبط <code>DATABASE_URL</code> في إعدادات الاستضافة)
+                  </>
+                ) : null}
+              </p>
+              <Link href="/offers">
+                <Button>العودة للعروض</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
+  }
 
   if (!offer || !offer.isActive) {
     return (

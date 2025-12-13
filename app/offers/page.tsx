@@ -95,17 +95,28 @@ export default async function OffersPage({
     orderBy = { speed: "asc" }
   }
 
-  const offers = await prisma.offer.findMany({
-    where,
-    include: {
-      merchant: {
-        include: {
-          user: true,
+  let offers: any[] = []
+  let dbError: string | null = null
+  try {
+    offers = await prisma.offer.findMany({
+      where,
+      include: {
+        merchant: {
+          include: {
+            user: true,
+          },
         },
       },
-    },
-    orderBy,
-  })
+      orderBy,
+    })
+  } catch (error: any) {
+    console.error("Offers page DB error:", error)
+    // Avoid leaking details in production
+    dbError =
+      process.env.NODE_ENV === "production"
+        ? "تعذر تحميل العروض حالياً بسبب مشكلة في قاعدة البيانات. يرجى المحاولة لاحقاً."
+        : error?.message || "Database error"
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -132,7 +143,27 @@ export default async function OffersPage({
           <OfferFilters />
         </div>
 
-        {offers.length === 0 ? (
+        {dbError ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>تعذر تحميل العروض</CardTitle>
+              <CardDescription>
+                {dbError}
+                {!process.env.DATABASE_URL ? (
+                  <>
+                    {" "}
+                    (مطلوب ضبط <code>DATABASE_URL</code> في إعدادات الاستضافة)
+                  </>
+                ) : null}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Link href="/">
+                <Button variant="outline">العودة للصفحة الرئيسية</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : offers.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-gray-500">لا توجد عروض متاحة حالياً</p>
