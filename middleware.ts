@@ -1,6 +1,6 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import type { NextFetchEvent, NextRequest } from "next/server"
 
 /**
  * Add security headers to all responses
@@ -72,7 +72,7 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest) {
 }
 
 // Main middleware with auth
-export default withAuth(
+const authMiddleware = withAuth(
   function middleware(req: NextRequest) {
     const pathname = req.nextUrl.pathname
     
@@ -123,6 +123,20 @@ export default withAuth(
     },
   }
 )
+
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
+  // If NEXTAUTH_SECRET isn't set in production, NextAuth middleware can get stuck in
+  // a redirect loop (/api/auth/error?error=Configuration). Fail "open" for pages so
+  // the site is accessible, and surface a clear error page instead.
+  if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
+    const response = NextResponse.next()
+    return addSecurityHeaders(response, req)
+  }
+
+  // NextAuth's middleware typing expects NextRequestWithAuth; Next.js provides NextRequest.
+  // Runtime is compatible; this is a type-level mismatch.
+  return (authMiddleware as any)(req, event)
+}
 
 export const config = {
   matcher: [

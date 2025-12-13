@@ -18,12 +18,16 @@ function ErrorContent() {
   const error = searchParams.get("error") || "Default"
 
   useEffect(() => {
+    // If NextAuth is misconfigured (e.g., missing NEXTAUTH_SECRET on Vercel),
+    // do NOT auto-redirect back to signin, otherwise users can end up in a redirect loop.
+    if (error === "Configuration") return
+
     const timer = setTimeout(() => {
       router.push("/auth/signin")
     }, 5000)
 
     return () => clearTimeout(timer)
-  }, [router])
+  }, [router, error])
 
   const errorMessage = errorMessages[error] || errorMessages.Default
 
