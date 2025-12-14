@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run db:generate && npm run db:push && npm run build",
+  "buildCommand": "if [ -n \"$DATABASE_URL\" ]; then npm run db:generate && npm run db:push; else echo \"[build] DATABASE_URL not set; skipping prisma generate/db push\"; fi && npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm ci --no-audit --no-fund",
   "framework": "nextjs",
