@@ -88,6 +88,7 @@ export async function validateCSRF(
 
     const originHeader = request.headers.get("origin")
     const refererHeader = request.headers.get("referer")
+    const secFetchSite = request.headers.get("sec-fetch-site") // e.g. same-origin, same-site, cross-site
 
     const normalizeOrigin = (value: string) => {
       try {
@@ -100,6 +101,12 @@ export async function validateCSRF(
     const requestOrigin =
       (originHeader && normalizeOrigin(originHeader)) ||
       (refererHeader && normalizeOrigin(refererHeader))
+
+    // If this is a browser same-origin request to the current deployment, allow without CSRF token.
+    // Cross-site requests won't have sec-fetch-site=same-origin and/or won't match deploymentOrigin.
+    if (requestOrigin && requestOrigin === deploymentOrigin && secFetchSite === "same-origin") {
+      return { valid: true }
+    }
 
     // If the browser provides an Origin/Referer, enforce it. If it's missing, don't block the request
     // (token validation below is still required and is the primary CSRF protection).
