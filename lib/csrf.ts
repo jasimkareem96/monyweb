@@ -193,9 +193,16 @@ export async function validateCSRF(
  */
 export async function createCSRFResponse(): Promise<NextResponse> {
   const token = generateCSRFToken()
-  await setCSRFToken(token)
+  const response = NextResponse.json({ csrfToken: token })
 
-  return NextResponse.json({
-    csrfToken: token,
+  // In Route Handlers, reliably set cookies on the response object.
+  response.cookies.set(CSRF_TOKEN_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24, // 24 hours
   })
+
+  return response
 }
