@@ -15,7 +15,7 @@ const errorMessages: Record<string, string> = {
 function ErrorContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const error = searchParams.get("error") || "Default"
+  const error = searchParams?.get("error") || "Default"
 
   useEffect(() => {
     // If NextAuth is misconfigured (e.g., missing NEXTAUTH_SECRET on Vercel),
