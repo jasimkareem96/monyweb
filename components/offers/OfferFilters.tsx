@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button"
 export function OfferFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [search, setSearch] = useState(searchParams.get("search") || "")
-  const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "")
-  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "")
+  const [search, setSearch] = useState(searchParams?.get("search") || "")
+  const [minPrice, setMinPrice] = useState(searchParams?.get("minPrice") || "")
+  const [maxPrice, setMaxPrice] = useState(searchParams?.get("maxPrice") || "")
 
   const updateParams = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString() || "")
     if (value) {
       params.set(key, value)
     } else {
@@ -87,7 +87,7 @@ export function OfferFilters() {
           <label className="block text-sm font-medium mb-1">الترتيب</label>
           <select
             className="px-4 py-2 border rounded-md"
-            defaultValue={searchParams.get("sort") || ""}
+            defaultValue={searchParams?.get("sort") || ""}
             onChange={(e) => updateParams("sort", e.target.value)}
           >
             <option value="">الافتراضي</option>
@@ -102,7 +102,7 @@ export function OfferFilters() {
           <label className="block text-sm font-medium mb-1">النوع</label>
           <select
             className="px-4 py-2 border rounded-md"
-            defaultValue={searchParams.get("type") || ""}
+            defaultValue={searchParams?.get("type") || ""}
             onChange={(e) => updateParams("type", e.target.value)}
           >
             <option value="">الكل</option>
@@ -121,7 +121,7 @@ export function OfferFilters() {
           <label className="block text-sm font-medium mb-1">الحالة</label>
           <select
             className="px-4 py-2 border rounded-md"
-            defaultValue={searchParams.get("online") || ""}
+            defaultValue={searchParams?.get("online") || ""}
             onChange={(e) => updateParams("online", e.target.value)}
           >
             <option value="">الكل</option>
@@ -135,7 +135,7 @@ export function OfferFilters() {
           <label className="block text-sm font-medium mb-1">المستوى</label>
           <select
             className="px-4 py-2 border rounded-md"
-            defaultValue={searchParams.get("tier") || ""}
+            defaultValue={searchParams?.get("tier") || ""}
             onChange={(e) => updateParams("tier", e.target.value)}
           >
             <option value="">الكل</option>
@@ -150,7 +150,7 @@ export function OfferFilters() {
           <label className="block text-sm font-medium mb-1">التقييم الأدنى</label>
           <select
             className="px-4 py-2 border rounded-md"
-            defaultValue={searchParams.get("minRating") || ""}
+            defaultValue={searchParams?.get("minRating") || ""}
             onChange={(e) => updateParams("minRating", e.target.value)}
           >
             <option value="">الكل</option>

@@ -9,11 +9,11 @@ import { Card, CardContent } from "@/components/ui/card"
 export function OfferAdminFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [search, setSearch] = React.useState(searchParams.get("search") || "")
+  const [search, setSearch] = React.useState(searchParams?.get("search") || "")
 
   const handleFilter = () => {
     const params = new URLSearchParams()
-    const active = searchParams.get("active")
+    const active = searchParams?.get("active")
     if (active) params.set("active", active)
     if (search) params.set("search", search)
     router.push(`/admin/offers?${params.toString()}`)
@@ -22,7 +22,7 @@ export function OfferAdminFilters() {
   const handleActiveChange = (value: string) => {
     const params = new URLSearchParams()
     if (value !== "all") params.set("active", value)
-    if (searchParams.get("search")) params.set("search", searchParams.get("search") || "")
+    if (searchParams?.get("search")) params.set("search", searchParams?.get("search") || "")
     router.push(`/admin/offers?${params.toString()}`)
   }
 
@@ -32,7 +32,7 @@ export function OfferAdminFilters() {
         <div className="flex flex-col md:flex-row gap-4">
           <select
             className="px-4 py-2 border rounded-md flex-1"
-            value={searchParams.get("active") || "all"}
+            value={searchParams?.get("active") || "all"}
             onChange={(e) => handleActiveChange(e.target.value)}
           >
             <option value="all">جميع العروض</option>

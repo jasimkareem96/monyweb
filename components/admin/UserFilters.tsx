@@ -16,11 +16,11 @@ const roleOptions = [
 export function UserFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [search, setSearch] = React.useState(searchParams.get("search") || "")
+  const [search, setSearch] = React.useState(searchParams?.get("search") || "")
 
   const handleFilter = () => {
     const params = new URLSearchParams()
-    const role = searchParams.get("role")
+    const role = searchParams?.get("role")
     if (role) params.set("role", role)
     if (search) params.set("search", search)
     router.push(`/admin/users?${params.toString()}`)
@@ -29,7 +29,7 @@ export function UserFilters() {
   const handleRoleChange = (value: string) => {
     const params = new URLSearchParams()
     if (value) params.set("role", value)
-    if (searchParams.get("search")) params.set("search", searchParams.get("search") || "")
+    if (searchParams?.get("search")) params.set("search", searchParams?.get("search") || "")
     router.push(`/admin/users?${params.toString()}`)
   }
 
@@ -39,7 +39,7 @@ export function UserFilters() {
         <div className="flex flex-col md:flex-row gap-4">
           <select
             className="px-4 py-2 border rounded-md flex-1"
-            value={searchParams.get("role") || ""}
+            value={searchParams?.get("role") || ""}
             onChange={(e) => handleRoleChange(e.target.value)}
           >
             {roleOptions.map((option) => (
