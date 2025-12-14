@@ -11,22 +11,35 @@ export async function POST(request: NextRequest) {
     request,
     async () => {
       try {
-        // Validate CSRF token
-        const csrfValidation = await validateCSRF(request)
-        if (!csrfValidation.valid) {
-          const reason = csrfValidation.error || "unknown"
-          return NextResponse.json(
-            { error: `CSRF token غير صحيح (${reason})`, reason },
-            { status: 403 }
-          )
-        }
-
         const session = await getServerSession(authOptions)
 
         if (!session || session.user.role !== "BUYER") {
           return NextResponse.json(
-            { error: "غير مصرح" },
+            {
+              error: "غير مصرح",
+              build: {
+                commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
+                deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
+              },
+            },
             { status: 401 }
+          )
+        }
+
+        // Validate CSRF token (after auth so unauth users get 401 instead of CSRF errors)
+        const csrfValidation = await validateCSRF(request)
+        if (!csrfValidation.valid) {
+          const reason = csrfValidation.error || "unknown"
+          return NextResponse.json(
+            {
+              error: `CSRF token غير صحيح (${reason})`,
+              reason,
+              build: {
+                commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
+                deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
+              },
+            },
+            { status: 403 }
           )
         }
 
