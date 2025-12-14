@@ -13,9 +13,32 @@ function safeParseUrl(value: string | undefined): URL | null {
   }
 }
 
+function normalizeSupabaseUrl(url: string): string {
+  const parsed = safeParseUrl(url)
+  if (!parsed) return url
+
+  const host = parsed.hostname
+  const isSupabase =
+    host.endsWith(".supabase.co") || host.endsWith(".supabase.com") || host.includes("supabase.com")
+  if (!isSupabase) return url
+
+  // Supabase requires SSL from most environments (including Vercel).
+  if (!parsed.searchParams.has("sslmode")) {
+    parsed.searchParams.set("sslmode", "require")
+  }
+
+  // If using Supabase pooler on 6543, Prisma often needs pgbouncer=true.
+  const isPoolerHost = host.includes("pooler.supabase.com")
+  if (isPoolerHost && parsed.port === "6543" && !parsed.searchParams.has("pgbouncer")) {
+    parsed.searchParams.set("pgbouncer", "true")
+  }
+
+  return parsed.toString()
+}
+
 function selectPrismaUrl(): { url?: string; mode: "database" | "direct" | "none" } {
-  const databaseUrl = process.env.DATABASE_URL
-  const directUrl = process.env.DIRECT_DATABASE_URL
+  const databaseUrl = process.env.DATABASE_URL ? normalizeSupabaseUrl(process.env.DATABASE_URL) : undefined
+  const directUrl = process.env.DIRECT_DATABASE_URL ? normalizeSupabaseUrl(process.env.DIRECT_DATABASE_URL) : undefined
 
   if (!databaseUrl && directUrl) return { url: directUrl, mode: "direct" }
   if (!databaseUrl && !directUrl) return { url: undefined, mode: "none" }
