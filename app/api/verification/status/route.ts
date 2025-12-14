@@ -44,6 +44,9 @@ export async function GET() {
 
     const dbMessageSignals = [
       "Can't reach database server",
+      "Authentication failed against database server",
+      "the provided database credentials",
+      "credentials for",
       "Timed out fetching a new connection from the pool",
       "Connection terminated unexpectedly",
       "server closed the connection unexpectedly",
