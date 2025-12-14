@@ -66,10 +66,20 @@ async function run(req: Request) {
   } catch (error) {
     // Log server-side for Vercel function logs, but don't leak details to clients.
     console.error("[next-auth] handler error:", error)
+    const err = error as any
+    // Provide a minimal, non-sensitive hint to help debugging production misconfig.
+    const message =
+      typeof err?.message === "string" ? err.message.slice(0, 300) : undefined
+    const name = typeof err?.name === "string" ? err.name : undefined
+    const code = typeof err?.code === "string" ? err.code : undefined
+
     return NextResponse.json(
       {
         error: "Authentication configuration error",
-        hint: "Check NEXTAUTH_SECRET and NEXTAUTH_URL in Vercel Environment Variables",
+        hint: "Check NEXTAUTH_SECRET, NEXTAUTH_URL, and database connectivity",
+        ...(name ? { name } : {}),
+        ...(code ? { code } : {}),
+        ...(message ? { message } : {}),
       },
       { status: 500 }
     )

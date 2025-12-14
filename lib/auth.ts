@@ -4,9 +4,6 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
-  // Required for deployments behind proxies (e.g., Vercel) to avoid "UntrustedHost" issues.
-  // NEXTAUTH_URL should still be set correctly in env.
-  trustHost: true,
   providers: [
     CredentialsProvider({
       name: "Credentials",
