@@ -4,25 +4,61 @@ import { NextResponse } from "next/server"
 
 const handler = NextAuth(authOptions)
 
-function guardProductionSecrets() {
-  if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
+function guardProductionConfig(req: Request) {
+  if (process.env.NODE_ENV !== "production") return null
+
+  if (!process.env.NEXTAUTH_SECRET) {
     // Do not throw (would break build-time module evaluation on Vercel).
     return NextResponse.json(
       { error: "Server misconfigured: NEXTAUTH_SECRET is missing" },
       { status: 500 }
     )
   }
-  if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_URL) {
+
+  const nextAuthUrl = process.env.NEXTAUTH_URL
+  if (!nextAuthUrl) {
     return NextResponse.json(
       { error: "Server misconfigured: NEXTAUTH_URL is missing" },
       { status: 500 }
     )
   }
+
+  // Validate NEXTAUTH_URL is a valid absolute URL (must include protocol)
+  let configuredOrigin: string
+  try {
+    configuredOrigin = new URL(nextAuthUrl).origin
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "Server misconfigured: NEXTAUTH_URL is invalid. It must be a full URL like https://monyweb1.vercel.app",
+      },
+      { status: 500 }
+    )
+  }
+
+  // Optional: help detect common misconfig (wrong domain)
+  try {
+    const reqOrigin = new URL(req.url).origin
+    if (reqOrigin && configuredOrigin && reqOrigin !== configuredOrigin) {
+      return NextResponse.json(
+        {
+          error:
+            "Server misconfigured: NEXTAUTH_URL does not match the current deployment URL",
+          details: { configuredOrigin, requestOrigin: reqOrigin },
+        },
+        { status: 500 }
+      )
+    }
+  } catch {
+    // ignore
+  }
+
   return null
 }
 
 async function run(req: Request) {
-  const guarded = guardProductionSecrets()
+  const guarded = guardProductionConfig(req)
   if (guarded) return guarded
 
   try {
@@ -31,7 +67,10 @@ async function run(req: Request) {
     // Log server-side for Vercel function logs, but don't leak details to clients.
     console.error("[next-auth] handler error:", error)
     return NextResponse.json(
-      { error: "Authentication configuration error" },
+      {
+        error: "Authentication configuration error",
+        hint: "Check NEXTAUTH_SECRET and NEXTAUTH_URL in Vercel Environment Variables",
+      },
       { status: 500 }
     )
   }
