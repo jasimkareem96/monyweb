@@ -23,6 +23,7 @@ export default async function OfferDetailPage({
   params: { id: string }
 }) {
   const session = await getServerSession(authOptions)
+  const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || null
 
   // Allow all users (authenticated and unauthenticated) to view offer details
   // Only authenticated buyers can create orders
@@ -63,6 +64,12 @@ export default async function OfferDetailPage({
                   <>
                     {" "}
                     (مطلوب ضبط <code>DATABASE_URL</code> في إعدادات الاستضافة)
+                  </>
+                ) : null}
+                {buildCommit ? (
+                  <>
+                    {" "}
+                    <span className="text-xs text-gray-400">(Build: {buildCommit})</span>
                   </>
                 ) : null}
               </p>

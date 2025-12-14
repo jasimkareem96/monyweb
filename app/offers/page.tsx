@@ -39,6 +39,7 @@ export default async function OffersPage({
   }
 }) {
   const session = await getServerSession(authOptions)
+  const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || null
 
   // Allow both authenticated and unauthenticated users to view offers
 
@@ -153,6 +154,12 @@ export default async function OffersPage({
                   <>
                     {" "}
                     (مطلوب ضبط <code>DATABASE_URL</code> في إعدادات الاستضافة)
+                  </>
+                ) : null}
+                {buildCommit ? (
+                  <>
+                    {" "}
+                    <span className="text-xs text-gray-400">(Build: {buildCommit})</span>
                   </>
                 ) : null}
               </CardDescription>
