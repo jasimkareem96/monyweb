@@ -18,11 +18,11 @@ const statusOptions = [
 export function DisputeFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [search, setSearch] = React.useState(searchParams.get("search") || "")
+  const [search, setSearch] = React.useState(searchParams?.get("search") || "")
 
   const handleFilter = () => {
     const params = new URLSearchParams()
-    const status = searchParams.get("status")
+    const status = searchParams?.get("status")
     if (status) params.set("status", status)
     if (search) params.set("search", search)
     router.push(`/admin/disputes?${params.toString()}`)
@@ -31,7 +31,7 @@ export function DisputeFilters() {
   const handleStatusChange = (value: string) => {
     const params = new URLSearchParams()
     if (value) params.set("status", value)
-    if (searchParams.get("search")) params.set("search", searchParams.get("search") || "")
+    if (searchParams?.get("search")) params.set("search", searchParams?.get("search") || "")
     router.push(`/admin/disputes?${params.toString()}`)
   }
 
@@ -41,7 +41,7 @@ export function DisputeFilters() {
         <div className="flex flex-col md:flex-row gap-4">
           <select
             className="px-4 py-2 border rounded-md flex-1"
-            value={searchParams.get("status") || ""}
+            value={searchParams?.get("status") || ""}
             onChange={(e) => handleStatusChange(e.target.value)}
           >
             {statusOptions.map((option) => (
