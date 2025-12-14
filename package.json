@@ -7,12 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+
+    "postinstall": "prisma generate",
+
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/create-default-users.ts",
     "db:reset-password": "tsx scripts/reset-user-password.ts",
+
     "generate:secrets": "node scripts/generate-secrets.js"
   },
   "dependencies": {
