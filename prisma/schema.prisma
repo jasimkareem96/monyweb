@@ -11,9 +11,12 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // Use a direct connection for schema operations (db push / migrate) when available.
-  // Recommended on Vercel: DATABASE_URL = Transaction pooler, DIRECT_DATABASE_URL = Direct connection.
-  directUrl = env("DIRECT_DATABASE_URL")
+  // NOTE:
+  // We intentionally avoid requiring a separate DIRECT_DATABASE_URL because
+  // missing env vars break Prisma CLI during Vercel builds (P1012).
+  // If you need a dedicated direct connection later, switch DATABASE_URL to
+  // a direct/session pooler URL for schema operations.
+  directUrl = env("DATABASE_URL")
 }
 
 // Enums converted to String for SQLite compatibility
