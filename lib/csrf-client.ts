@@ -6,6 +6,19 @@
 let csrfToken: string | null = null
 let tokenPromise: Promise<string> | null = null
 
+async function fetchCSRFToken(): Promise<string> {
+  const res = await fetch("/api/csrf-token", { cache: "no-store" })
+  if (!res.ok) {
+    throw new Error("Failed to get CSRF token")
+  }
+  const data = await res.json()
+  const token = data.csrfToken
+  if (!token || typeof token !== "string") {
+    throw new Error("Invalid CSRF token received")
+  }
+  return token
+}
+
 /**
  * Get CSRF token (with caching)
  */
@@ -21,18 +34,8 @@ export async function getCSRFToken(): Promise<string> {
   }
 
   // Fetch new token
-  tokenPromise = fetch("/api/csrf-token")
-    .then((res) => {
-      if (!res.ok) {
-        throw new Error("Failed to get CSRF token")
-      }
-      return res.json()
-    })
-    .then((data) => {
-      const token = data.csrfToken
-      if (!token || typeof token !== "string") {
-        throw new Error("Invalid CSRF token received")
-      }
+  tokenPromise = fetchCSRFToken()
+    .then((token) => {
       csrfToken = token
       tokenPromise = null
       return token
@@ -41,9 +44,20 @@ export async function getCSRFToken(): Promise<string> {
       tokenPromise = null
       csrfToken = null
       throw error
-    }) as Promise<string>
+    })
 
   return tokenPromise
+}
+
+/**
+ * Get a fresh CSRF token (bypasses cache)
+ */
+export async function getFreshCSRFToken(): Promise<string> {
+  csrfToken = null
+  tokenPromise = null
+  const token = await fetchCSRFToken()
+  csrfToken = token
+  return token
 }
 
 /**
@@ -58,7 +72,8 @@ export function clearCSRFToken() {
  * Add CSRF token to request headers
  */
 export async function addCSRFHeader(headers: HeadersInit = {}): Promise<HeadersInit> {
-  const token = await getCSRFToken()
+  // Use fresh token for state-changing requests to avoid cookie/token desync across tabs.
+  const token = await getFreshCSRFToken()
   return {
     ...headers,
     "X-CSRF-Token": token,
@@ -69,7 +84,8 @@ export async function addCSRFHeader(headers: HeadersInit = {}): Promise<HeadersI
  * Add CSRF token to form data
  */
 export async function addCSRFToFormData(formData: FormData): Promise<FormData> {
-  const token = await getCSRFToken()
+  // Use fresh token for state-changing requests to avoid cookie/token desync across tabs.
+  const token = await getFreshCSRFToken()
   formData.append("_csrf", token)
   return formData
 }
@@ -78,7 +94,8 @@ export async function addCSRFToFormData(formData: FormData): Promise<FormData> {
  * Add CSRF token to JSON body
  */
 export async function addCSRFToBody(body: any): Promise<any> {
-  const token = await getCSRFToken()
+  // Use fresh token for state-changing requests to avoid cookie/token desync across tabs.
+  const token = await getFreshCSRFToken()
   return {
     ...body,
     _csrf: token,
