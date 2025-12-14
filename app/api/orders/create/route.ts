@@ -14,8 +14,9 @@ export async function POST(request: NextRequest) {
         // Validate CSRF token
         const csrfValidation = await validateCSRF(request)
         if (!csrfValidation.valid) {
+          const reason = csrfValidation.error || "unknown"
           return NextResponse.json(
-            { error: "CSRF token غير صحيح", reason: csrfValidation.error || "unknown" },
+            { error: `CSRF token غير صحيح (${reason})`, reason },
             { status: 403 }
           )
         }
