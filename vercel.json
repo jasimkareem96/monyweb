@@ -1,7 +1,6 @@
 {
-  "buildCommand": "if [ -n \"$DATABASE_URL\" ]; then export DIRECT_DATABASE_URL=\"${DIRECT_DATABASE_URL:-$DATABASE_URL}\"; npm run db:generate || echo \"[build] prisma generate failed; continuing\"; npm run db:push || echo \"[build] prisma db push failed; continuing\"; if [ \"$SEED_DEFAULT_USERS\" = \"true\" ]; then npm run db:seed || echo \"[build] db:seed failed; continuing\"; else echo \"[build] SEED_DEFAULT_USERS not set; skipping db:seed\"; fi; else echo \"[build] DATABASE_URL not set; skipping prisma generate/db push\"; fi; npm run build",
+  "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm ci --no-audit --no-fund",
-  "framework": "nextjs",
-  "regions": ["iad1"]
+  "framework": "nextjs"
 }
