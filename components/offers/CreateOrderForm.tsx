@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import axios from "axios"
 import { formatCurrency } from "@/lib/utils"
+import { addCSRFToBody, getCSRFToken } from "@/lib/csrf-client"
 
 interface Offer {
   id: string
@@ -41,9 +42,16 @@ export function CreateOrderForm({ offer }: { offer: Offer }) {
     }
 
     try {
-      const response = await axios.post("/api/orders/create", {
+      const dataWithCSRF = await addCSRFToBody({
         offerId: offer.id,
         amount: amountNum,
+      })
+      const csrfToken = await getCSRFToken()
+
+      const response = await axios.post("/api/orders/create", dataWithCSRF, {
+        headers: {
+          "X-CSRF-Token": csrfToken,
+        },
       })
 
       if (response.data.success) {

@@ -76,6 +76,7 @@ export async function validateCSRF(
   // Extra hardening: verify Origin/Referer for state-changing requests in production.
   // This doesn't replace token validation, but reduces risk from cross-site requests.
   if (process.env.NODE_ENV === "production") {
+    const deploymentOrigin = new URL(request.url).origin
     const allowedOrigins = (
       process.env.ALLOWED_ORIGINS ||
       process.env.NEXTAUTH_URL ||
@@ -100,7 +101,8 @@ export async function validateCSRF(
       (originHeader && normalizeOrigin(originHeader)) ||
       (refererHeader && normalizeOrigin(refererHeader))
 
-    if (!requestOrigin || !allowedOrigins.includes(requestOrigin)) {
+    // Always allow same-origin requests for the current deployment, even if env vars are misconfigured.
+    if (!requestOrigin || (requestOrigin !== deploymentOrigin && !allowedOrigins.includes(requestOrigin))) {
       return { valid: false, error: "Invalid request origin" }
     }
   }
