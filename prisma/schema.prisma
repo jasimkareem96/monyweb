@@ -11,12 +11,13 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // NOTE:
-  // We intentionally avoid requiring a separate DIRECT_DATABASE_URL because
-  // missing env vars break Prisma CLI during Vercel builds (P1012).
-  // If you need a dedicated direct connection later, switch DATABASE_URL to
-  // a direct/session pooler URL for schema operations.
-  directUrl = env("DATABASE_URL")
+  // Use a direct connection for schema operations (migrations/db push).
+  // On Vercel/Supabase: set DATABASE_URL to the Transaction pooler (pgbouncer)
+  // and DIRECT_DATABASE_URL to the Direct connection.
+  //
+  // NOTE: Prisma requires env vars to exist at build time. Our `vercel.json`
+  // buildCommand exports DIRECT_DATABASE_URL with a fallback to DATABASE_URL.
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // Enums converted to String for SQLite compatibility
