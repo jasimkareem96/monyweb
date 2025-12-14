@@ -22,6 +22,11 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   try {
     const orderId = ctx.params.id;
 
+    // حماية بسيطة للـ id
+    if (!orderId || orderId.includes("..") || orderId.includes("/") || orderId.includes("\\")) {
+      return NextResponse.json({ error: "Order ID غير صالح" }, { status: 400 });
+    }
+
     // 1) اقرأ formData بنفس الأسماء اللي ظهرت عندك
     const formData = await req.formData();
 
@@ -30,9 +35,17 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     const transactionId = (formData.get("transactionId") as string | null) ?? "";
     const confirmationText = (formData.get("confirmationText") as string | null) ?? "";
 
-    if (!beforePaymentProof || !afterPaymentProof || !transactionId || !confirmationText) {
+    // ✅ تحديث: تحقق من الوجود + الحجم (size==0) لأن أحيانًا ينرسل File فارغ
+    if (
+      !beforePaymentProof ||
+      !afterPaymentProof ||
+      beforePaymentProof.size === 0 ||
+      afterPaymentProof.size === 0 ||
+      !transactionId.trim() ||
+      !confirmationText.trim()
+    ) {
       return NextResponse.json(
-        { error: "جميع الحقول مطلوبة (before/after/transactionId/confirmationText)" },
+        { error: "ملفات الإثبات أو البيانات النصية غير مكتملة" },
         { status: 400 }
       );
     }
@@ -42,9 +55,12 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
     for (const f of files) {
       if (f.size > MAX_SIZE) {
-        return NextResponse.json({ error: "حجم الملف يجب أن يكون أقل من 5MB" }, { status: 400 });
+        return NextResponse.json(
+          { error: "حجم الملف يجب أن يكون أقل من 5MB" },
+          { status: 400 }
+        );
       }
-      if (!f.type.startsWith("image/")) {
+      if (!f.type || !f.type.startsWith("image/")) {
         return NextResponse.json({ error: "الملف يجب أن يكون صورة" }, { status: 400 });
       }
     }
@@ -64,6 +80,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
     // 4) ارفع الملفين إلى Storage
     const ts = Date.now();
+
     const beforeExt = safeExtFromFile(beforePaymentProof);
     const afterExt = safeExtFromFile(afterPaymentProof);
 
@@ -77,18 +94,26 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       contentType: beforePaymentProof.type,
       upsert: false,
     });
+
     if (up1.error) {
       console.error("Supabase upload before error:", up1.error);
-      return NextResponse.json({ error: "فشل رفع صورة قبل الدفع" }, { status: 500 });
+      return NextResponse.json(
+        { error: `فشل رفع صورة قبل الدفع: ${up1.error.message}` },
+        { status: 500 }
+      );
     }
 
     const up2 = await supabase.storage.from(BUCKET).upload(afterPath, afterBuf, {
       contentType: afterPaymentProof.type,
       upsert: false,
     });
+
     if (up2.error) {
       console.error("Supabase upload after error:", up2.error);
-      return NextResponse.json({ error: "فشل رفع صورة بعد الدفع" }, { status: 500 });
+      return NextResponse.json(
+        { error: `فشل رفع صورة بعد الدفع: ${up2.error.message}` },
+        { status: 500 }
+      );
     }
 
     const beforeUrl = supabase.storage.from(BUCKET).getPublicUrl(beforePath).data.publicUrl;
@@ -116,8 +141,11 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       afterUrl,
       transactionId,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Upload payment proof error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || "Server error" },
+      { status: 500 }
+    );
   }
 }
