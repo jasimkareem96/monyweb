@@ -101,9 +101,13 @@ export async function validateCSRF(
       (originHeader && normalizeOrigin(originHeader)) ||
       (refererHeader && normalizeOrigin(refererHeader))
 
-    // Always allow same-origin requests for the current deployment, even if env vars are misconfigured.
-    if (!requestOrigin || (requestOrigin !== deploymentOrigin && !allowedOrigins.includes(requestOrigin))) {
-      return { valid: false, error: "Invalid request origin" }
+    // If the browser provides an Origin/Referer, enforce it. If it's missing, don't block the request
+    // (token validation below is still required and is the primary CSRF protection).
+    if (requestOrigin) {
+      // Always allow same-origin requests for the current deployment, even if env vars are misconfigured.
+      if (requestOrigin !== deploymentOrigin && !allowedOrigins.includes(requestOrigin)) {
+        return { valid: false, error: "Invalid request origin" }
+      }
     }
   }
 
