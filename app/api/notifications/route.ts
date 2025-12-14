@@ -35,10 +35,43 @@ export async function GET() {
     }
 
     const anyErr = error as any
-    const code = anyErr?.code || anyErr?.cause?.code || null
+    const message: string = String(anyErr?.message || "")
+    const codeFromProps =
+      anyErr?.code ||
+      anyErr?.errorCode ||
+      anyErr?.cause?.code ||
+      anyErr?.cause?.errorCode ||
+      null
+    const codeFromMessage = message.match(/\bP\d{4}\b/)?.[0] || null
+    const code = codeFromProps || codeFromMessage
+
+    const dbMessageSignals = [
+      "Can't reach database server",
+      "Timed out fetching a new connection from the pool",
+      "Connection terminated unexpectedly",
+      "server closed the connection unexpectedly",
+      "ECONNREFUSED",
+      "ETIMEDOUT",
+      "ENOTFOUND",
+      "EAI_AGAIN",
+      "password authentication failed",
+      "no pg_hba.conf entry",
+      "SSL",
+    ]
+
+    const dbCodes = new Set([
+      "P1000", // Authentication failed
+      "P1001", // Can't reach DB server
+      "P1002", // Connection timed out
+      "P1003", // Database does not exist
+      "P1008", // Operations timed out
+      "P1017", // Server closed the connection
+      "P2024", // Timed out fetching a new connection from the pool
+    ])
+
     const isDbDown =
-      code === "P1001" ||
-      (typeof anyErr?.message === "string" && anyErr.message.includes("Can't reach database server"))
+      (code && dbCodes.has(code)) ||
+      dbMessageSignals.some((s) => message.includes(s))
 
     return NextResponse.json(
       {

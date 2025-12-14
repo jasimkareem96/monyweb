@@ -32,10 +32,43 @@ export async function GET() {
     if (process.env.NODE_ENV !== "production") {
       console.error("Verification status error:", error)
     }
-    const code = error?.code || error?.cause?.code || null
+    const message: string = String(error?.message || "")
+    const codeFromProps =
+      error?.code ||
+      error?.errorCode ||
+      error?.cause?.code ||
+      error?.cause?.errorCode ||
+      null
+    const codeFromMessage = message.match(/\bP\d{4}\b/)?.[0] || null
+    const code = codeFromProps || codeFromMessage
+
+    const dbMessageSignals = [
+      "Can't reach database server",
+      "Timed out fetching a new connection from the pool",
+      "Connection terminated unexpectedly",
+      "server closed the connection unexpectedly",
+      "ECONNREFUSED",
+      "ETIMEDOUT",
+      "ENOTFOUND",
+      "EAI_AGAIN",
+      "password authentication failed",
+      "no pg_hba.conf entry",
+      "SSL",
+    ]
+
+    const dbCodes = new Set([
+      "P1000",
+      "P1001",
+      "P1002",
+      "P1003",
+      "P1008",
+      "P1017",
+      "P2024",
+    ])
+
     const isDbDown =
-      code === "P1001" ||
-      (typeof error?.message === "string" && error.message.includes("Can't reach database server"))
+      (code && dbCodes.has(code)) ||
+      dbMessageSignals.some((s) => message.includes(s))
     return NextResponse.json(
       {
         error: isDbDown
