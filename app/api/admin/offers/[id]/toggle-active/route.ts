@@ -15,33 +15,32 @@ export async function POST(
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
-    const orderId = ctx.params.id;
+    const offerId = ctx.params.id;
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true, status: true },
+    const offer = await prisma.offer.findUnique({
+      where: { id: offerId },
+      select: { id: true, isActive: true },
     });
 
-    if (!order) {
-      return NextResponse.json({ error: "الطلب غير موجود" }, { status: 404 });
-    }
-
-    if (order.status !== "PROOFS_SUBMITTED") {
+    if (!offer) {
       return NextResponse.json(
-        { error: "حالة الطلب غير صحيحة", currentStatus: order.status },
-        { status: 409 }
+        { error: "العرض غير موجود" },
+        { status: 404 }
       );
     }
 
-    // ✅ نحدّث فقط status (بدون paidAt لأن مو موجود عندك)
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { status: "PAID" },
+    const updated = await prisma.offer.update({
+      where: { id: offerId },
+      data: { isActive: !offer.isActive },
+      select: { id: true, isActive: true },
     });
 
     return NextResponse.json({
       ok: true,
-      message: "✅ تم قبول الدفع بنجاح",
+      offer: updated,
+      message: updated.isActive
+        ? "✅ تم تفعيل العرض"
+        : "⛔ تم إيقاف العرض",
     });
   } catch (e: any) {
     return NextResponse.json(
