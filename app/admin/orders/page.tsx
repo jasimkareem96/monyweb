@@ -1,10 +1,10 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import { Navbar } from "@/components/layout/Navbar"
-import { prisma } from "@/lib/prisma"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
+import { redirect } from "next/navigation"
+import { getServerSession } from "next-auth"
+import { prisma } from "@/lib/prisma"
+import { authOptions } from "@/lib/auth"
+import { Navbar } from "@/components/layout/Navbar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { OrderFilters } from "@/components/admin/OrderFilters"
@@ -31,28 +31,26 @@ export default async function AdminOrdersPage({
   searchParams: { status?: string; search?: string; page?: string }
 }) {
   const session = await getServerSession(authOptions)
+  if (!session || session.user.role !== "ADMIN") redirect("/dashboard")
 
-  if (!session || session.user.role !== "ADMIN") {
-    redirect("/dashboard")
-  }
-
-  const page = parseInt(searchParams.page || "1")
+  const page = Math.max(1, parseInt(searchParams.page || "1", 10))
   const pageSize = 20
   const skip = (page - 1) * pageSize
 
-  let where: any = {}
+  const where: any = {}
 
-  if (searchParams.status) {
+  if (searchParams.status && searchParams.status !== "ALL") {
     where.status = searchParams.status
   }
 
-  if (searchParams.search) {
+  if (searchParams.search?.trim()) {
+    const q = searchParams.search.trim()
     where.OR = [
-      { id: { contains: searchParams.search } },
-      { buyer: { name: { contains: searchParams.search } } },
-      { buyer: { email: { contains: searchParams.search } } },
-      { merchant: { name: { contains: searchParams.search } } },
-      { merchant: { email: { contains: searchParams.search } } },
+      { id: { contains: q } },
+      { buyer: { name: { contains: q } } },
+      { buyer: { email: { contains: q } } },
+      { merchant: { name: { contains: q } } },
+      { merchant: { email: { contains: q } } },
     ]
   }
 
@@ -62,11 +60,7 @@ export default async function AdminOrdersPage({
       include: {
         offer: true,
         buyer: true,
-        merchant: {
-          include: {
-            merchantProfile: true,
-          },
-        },
+        merchant: { include: { merchantProfile: true } },
         dispute: true,
       },
       orderBy: { createdAt: "desc" },
@@ -76,28 +70,23 @@ export default async function AdminOrdersPage({
     prisma.order.count({ where }),
   ])
 
-  // ✅ مؤشرات الإثباتات (تستفيد منها لاحقًا بصفحة المراجعة)
-  const ordersWithEvidence = orders.map((order: any) => ({
-    ...order,
-    hasBuyerEvidence: !!(order.buyerBeforePaymentProof || order.buyerAfterPaymentProof),
-    hasMerchantEvidence: !!order.merchantDeliveryProof,
-  }))
-
   const totalPages = Math.ceil(totalOrders / pageSize)
 
-  // ✅ إحصائيات (بدون فلتر where حتى تكون أرقام عامة للمنصة)
-  const stats = await Promise.all([
-    prisma.order.count({ where: { status: "PENDING_QUOTE" } }),
-    prisma.order.count({ where: { status: "WAITING_PAYMENT" } }),
-    prisma.order.count({ where: { status: "PROOFS_SUBMITTED" } }),
-    prisma.order.count({ where: { status: "ESCROWED" } }),
-    prisma.order.count({ where: { status: "COMPLETED" } }),
-    prisma.order.count({ where: { status: "CANCELLED" } }),
-  ])
+  // ✅ إحصائيات عامة (بدون فلتر where)
+  const [pendingQuote, waitingPayment, proofsSubmitted, escrowed, completed, cancelled] =
+    await Promise.all([
+      prisma.order.count({ where: { status: "PENDING_QUOTE" } }),
+      prisma.order.count({ where: { status: "WAITING_PAYMENT" } }),
+      prisma.order.count({ where: { status: "PROOFS_SUBMITTED" } }),
+      prisma.order.count({ where: { status: "ESCROWED" } }),
+      prisma.order.count({ where: { status: "COMPLETED" } }),
+      prisma.order.count({ where: { status: "CANCELLED" } }),
+    ])
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
+
       <main className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">إدارة الطلبات</h1>
@@ -106,7 +95,7 @@ export default async function AdminOrdersPage({
           </Link>
         </div>
 
-        {/* ✅ Statistics Cards (قابلة للضغط) */}
+        {/* ✅ Cards clickable */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
           <Link href={statusLink("PENDING_QUOTE")}>
             <Card className="cursor-pointer hover:shadow-sm transition">
@@ -114,7 +103,7 @@ export default async function AdminOrdersPage({
                 <CardTitle className="text-sm font-medium">في انتظار التأكيد</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{stats[0]}</p>
+                <p className="text-2xl font-bold">{pendingQuote}</p>
               </CardContent>
             </Card>
           </Link>
@@ -125,7 +114,7 @@ export default async function AdminOrdersPage({
                 <CardTitle className="text-sm font-medium">بانتظار الدفع</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{stats[1]}</p>
+                <p className="text-2xl font-bold">{waitingPayment}</p>
               </CardContent>
             </Card>
           </Link>
@@ -138,7 +127,7 @@ export default async function AdminOrdersPage({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-orange-700">{stats[2]}</p>
+                <p className="text-2xl font-bold text-orange-700">{proofsSubmitted}</p>
               </CardContent>
             </Card>
           </Link>
@@ -149,7 +138,7 @@ export default async function AdminOrdersPage({
                 <CardTitle className="text-sm font-medium">الأموال محجوزة</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{stats[3]}</p>
+                <p className="text-2xl font-bold">{escrowed}</p>
               </CardContent>
             </Card>
           </Link>
@@ -160,7 +149,7 @@ export default async function AdminOrdersPage({
                 <CardTitle className="text-sm font-medium">مكتمل</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{stats[4]}</p>
+                <p className="text-2xl font-bold">{completed}</p>
               </CardContent>
             </Card>
           </Link>
@@ -171,7 +160,7 @@ export default async function AdminOrdersPage({
                 <CardTitle className="text-sm font-medium">ملغي</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{stats[5]}</p>
+                <p className="text-2xl font-bold">{cancelled}</p>
               </CardContent>
             </Card>
           </Link>
@@ -180,26 +169,23 @@ export default async function AdminOrdersPage({
         {/* ✅ Filters */}
         <OrderFilters />
 
-        {ordersWithEvidence.length === 0 ? (
+        {orders.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-500">
-                لا توجد طلبات{" "}
-                {searchParams.status ? `لهذه الحالة: ${statusLabels[searchParams.status] || searchParams.status}` : ""}
-              </p>
+            <CardContent className="py-12 text-center text-gray-500">
+              لا توجد طلبات لهذه الحالة
             </CardContent>
           </Card>
         ) : (
           <>
             <div className="space-y-4 mb-6">
-              {ordersWithEvidence.map((order: any) => (
+              {orders.map((order: any) => (
                 <Card key={order.id}>
                   <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3 flex-wrap">
                           <Link
-                            href={`/orders/${order.id}`}
+                            href={`/admin/orders/${order.id}`}
                             className="text-lg font-semibold text-primary-600 hover:underline"
                           >
                             طلب #{order.id.slice(0, 8)}
@@ -224,17 +210,6 @@ export default async function AdminOrdersPage({
                               نزاع
                             </span>
                           )}
-
-                          {order.hasBuyerEvidence && (
-                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              ✓ إثباتات المشتري
-                            </span>
-                          )}
-                          {order.hasMerchantEvidence && (
-                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              ✓ إثباتات التاجر
-                            </span>
-                          )}
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -242,16 +217,19 @@ export default async function AdminOrdersPage({
                             <p className="text-gray-600">المبلغ</p>
                             <p className="font-semibold">{formatCurrency(order.amount)}</p>
                           </div>
+
                           <div>
                             <p className="text-gray-600">المشتري</p>
                             <p className="font-semibold">{order.buyer?.name}</p>
                             <p className="text-xs text-gray-500">{order.buyer?.email}</p>
                           </div>
+
                           <div>
                             <p className="text-gray-600">التاجر</p>
                             <p className="font-semibold">{order.merchant?.name}</p>
                             <p className="text-xs text-gray-500">{order.merchant?.email}</p>
                           </div>
+
                           <div>
                             <p className="text-gray-600">التاريخ</p>
                             <p className="font-semibold">
@@ -262,18 +240,12 @@ export default async function AdminOrdersPage({
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <Link href={`/orders/${order.id}`}>
-                          <Button variant="outline" size="sm">
-                            عرض التفاصيل
-                          </Button>
+                        <Link href={`/admin/orders/${order.id}`}>
+                          <Button size="sm">عرض التفاصيل</Button>
                         </Link>
-                        {order.dispute && (
-                          <Link href={`/admin/disputes/${order.dispute.id}`}>
-                            <Button variant="destructive" size="sm">
-                              مراجعة النزاع
-                            </Button>
-                          </Link>
-                        )}
+                        <Link href={`/orders/${order.id}`}>
+                          <Button variant="outline" size="sm">صفحة الطلب</Button>
+                        </Link>
                       </div>
                     </div>
                   </CardContent>
@@ -281,7 +253,6 @@ export default async function AdminOrdersPage({
               ))}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex justify-center gap-2">
                 {page > 1 && (
