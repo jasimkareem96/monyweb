@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import OrdersTable from "@/components/admin/orders-table"
+import OrderFilters from "@/components/admin/OrderFilters"
 
 const statusLabels: Record<string, string> = {
   PENDING_QUOTE: "في انتظار التأكيد",
   WAITING_PAYMENT: "بانتظار الدفع",
-  PROOFS_SUBMITTED: "بانتظار مراجعة الإثباتات", // ✅ جديد
+  PROOFS_SUBMITTED: "بانتظار مراجعة الإثباتات",
   ESCROWED: "الأموال محجوزة",
   MERCHANT_PROCESSING: "التاجر ينفذ العملية",
   WAITING_BUYER_CONFIRM: "بانتظار تأكيد المشتري",
@@ -25,15 +25,11 @@ export default async function AdminOrdersPage() {
   ] = await Promise.all([
     prisma.order.count({ where: { status: "PENDING_QUOTE" } }),
     prisma.order.count({ where: { status: "WAITING_PAYMENT" } }),
-    prisma.order.count({ where: { status: "PROOFS_SUBMITTED" } }), // ✅ جديد
+    prisma.order.count({ where: { status: "PROOFS_SUBMITTED" } }),
     prisma.order.count({ where: { status: "ESCROWED" } }),
     prisma.order.count({ where: { status: "COMPLETED" } }),
     prisma.order.count({ where: { status: "CANCELLED" } }),
   ])
-
-  const orders = await prisma.order.findMany({
-    orderBy: { createdAt: "desc" },
-  })
 
   return (
     <div className="space-y-6">
@@ -61,7 +57,7 @@ export default async function AdminOrdersPage() {
           </CardContent>
         </Card>
 
-        {/* ✅ كارد المراجعة */}
+        {/* بانتظار مراجعة الإثباتات */}
         <Card className="border-orange-400">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-orange-600">
@@ -109,11 +105,17 @@ export default async function AdminOrdersPage() {
         </Card>
       </div>
 
-      {/* جدول الطلبات */}
-      <OrdersTable
-        orders={orders}
-        statusLabels={statusLabels}
-      />
+      {/* الفلاتر */}
+      <OrderFilters />
+
+      {/* تنبيه للأدمن */}
+      <div className="rounded-lg border bg-white p-4 text-sm text-gray-600">
+        الطلبات بحالة{" "}
+        <strong className="text-orange-600">
+          بانتظار مراجعة الإثباتات
+        </strong>{" "}
+        تحتاج إجراء يدوي من الأدمن (قبول أو رفض).
+      </div>
     </div>
   )
 }
