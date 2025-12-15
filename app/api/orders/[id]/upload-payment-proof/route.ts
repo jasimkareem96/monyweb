@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,107 +15,83 @@ function safeExtFromFile(file: File) {
   return blocked.includes(ext) ? "png" : ext;
 }
 
-async function uploadToSupabase(
-  supabase: any,
-  file: File,
-  path: string
-) {
+async function uploadToSupabaseStorage(supabase: any, file: File, path: string) {
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(path, buffer, {
-      contentType: file.type || "image/png",
-      upsert: true,
-    });
+  const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, buffer, {
+    contentType: file.type || "image/png",
+    upsert: true,
+  });
 
   if (error) throw error;
+
+  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+  return data.publicUrl as string;
 }
 
-export async function POST(
-  req: NextRequest,
-  ctx: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   try {
     const orderId = ctx.params.id;
-    const formData = await req.formData();
 
+    const formData = await req.formData();
     const beforePaymentProof = formData.get("beforePaymentProof");
     const afterPaymentProof = formData.get("afterPaymentProof");
     const transactionId = formData.get("transactionId")?.toString() || "";
     const confirmationText = formData.get("confirmationText")?.toString() || "";
 
     if (!(beforePaymentProof instanceof File)) {
-      return NextResponse.json(
-        { error: "ملف إثبات الدفع (قبل) غير موجود" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ملف إثبات الدفع (قبل) غير موجود" }, { status: 400 });
     }
-
     if (!(afterPaymentProof instanceof File)) {
-      return NextResponse.json(
-        { error: "ملف إثبات الدفع (بعد) غير موجود" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ملف إثبات الدفع (بعد) غير موجود" }, { status: 400 });
+    }
+    if (beforePaymentProof.size > MAX_SIZE || afterPaymentProof.size > MAX_SIZE) {
+      return NextResponse.json({ error: "حجم الملف أكبر من 5MB" }, { status: 400 });
     }
 
-    if (
-      beforePaymentProof.size > MAX_SIZE ||
-      afterPaymentProof.size > MAX_SIZE
-    ) {
-      return NextResponse.json(
-        { error: "حجم الملف أكبر من 5MB" },
-        { status: 400 }
-      );
+    // 1) اقرأ الطلب من نفس DB اللي تقرأ منها لوحة الأدمن (Prisma)
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true },
+    });
+
+    if (!order) {
+      return NextResponse.json({ error: "الطلب غير موجود" }, { status: 404 });
     }
 
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error("Missing Supabase environment variables");
-    }
-
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-
-    // جلب الطلب
-    const { data: order, error: orderError } = await supabase
-      .from("Order")
-      .select("id, status")
-      .eq("id", orderId)
-      .single();
-
-    if (orderError || !order) {
-      return NextResponse.json(
-        { error: "الطلب غير موجود" },
-        { status: 404 }
-      );
-    }
-
-    const allowedStatuses = ["WAITING_PAYMENT", "AWAITING_PROOFS"];
-
+    // خليه واسع شوي حتى ما تتعطل، حسب مساراتك الحالية
+    const allowedStatuses = ["WAITING_PAYMENT", "AWAITING_PROOFS", "PENDING_QUOTE"];
     if (!allowedStatuses.includes(order.status)) {
       return NextResponse.json(
-        {
-          error: "حالة الطلب غير صحيحة",
-          currentStatus: order.status,
-        },
+        { error: "حالة الطلب غير صحيحة", currentStatus: order.status, allowed: allowedStatuses },
         { status: 409 }
       );
     }
+
+    // 2) ارفع الصور على Supabase Storage
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Supabase env missing", details: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
     const beforeExt = safeExtFromFile(beforePaymentProof);
     const afterExt = safeExtFromFile(afterPaymentProof);
     const basePath = `orders/${orderId}`;
 
-    // رفع الملفات
+    let beforeUrl = "";
+    let afterUrl = "";
+
     try {
-      await uploadToSupabase(
+      beforeUrl = await uploadToSupabaseStorage(
         supabase,
         beforePaymentProof,
         `${basePath}/before.${beforeExt}`
       );
-      await uploadToSupabase(
+      afterUrl = await uploadToSupabaseStorage(
         supabase,
         afterPaymentProof,
         `${basePath}/after.${afterExt}`
@@ -122,50 +99,28 @@ export async function POST(
     } catch (e: any) {
       console.error("Storage upload error:", e);
       return NextResponse.json(
-        { error: "فشل رفع صور الإثبات", details: e.message },
+        { error: "فشل رفع صور الإثبات", details: e?.message ?? String(e) },
         { status: 500 }
       );
     }
 
-    const { data: beforeUrl } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(`${basePath}/before.${beforeExt}`);
-
-    const { data: afterUrl } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(`${basePath}/after.${afterExt}`);
-
-    // تحديث الطلب (أسماء الأعمدة الصحيحة)
-    const { error: updateError } = await supabase
-      .from("Order")
-      .update({
-        buyerBeforePaymentProof: beforeUrl.publicUrl,
-        buyerAfterPaymentProof: afterUrl.publicUrl,
+    // 3) حدّث الطلب بـ Prisma (هذا اللي يخلي الأدمن يشوفه)
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        buyerBeforePaymentProof: beforeUrl,
+        buyerAfterPaymentProof: afterUrl,
         paypalTransactionId: transactionId,
         buyerConfirmationText: confirmationText,
         status: "PROOFS_SUBMITTED",
-      })
-      .eq("id", orderId);
-
-    if (updateError) {
-      console.error("Order update error:", updateError);
-      return NextResponse.json(
-        {
-          error: "فشل تحديث الطلب بعد رفع الإثباتات",
-          details: updateError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      message: "تم رفع إثباتات الدفع بنجاح",
+      },
     });
+
+    return NextResponse.json({ ok: true, message: "تم رفع إثباتات الدفع بنجاح" });
   } catch (err: any) {
     console.error("Upload payment proof error:", err);
     return NextResponse.json(
-      { error: "خطأ غير متوقع", details: err.message },
+      { error: "خطأ غير متوقع", details: err?.message ?? String(err) },
       { status: 500 }
     );
   }
