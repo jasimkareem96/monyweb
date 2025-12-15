@@ -78,7 +78,7 @@ export async function POST(
 
     // 🔍 جلب الطلب
     const { data: order, error: orderError } = await supabase
-      .from("orders")
+      .from("Order")
       .select("id, status")
       .eq("id", orderId)
       .single();
@@ -147,7 +147,7 @@ export async function POST(
 
     // 💾 تحديث الطلب
     await supabase
-      .from("orders")
+      .from("Order")
       .update({
         before_payment_proof: beforeUrl.publicUrl,
         after_payment_proof: afterUrl.publicUrl,
