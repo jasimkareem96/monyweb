@@ -4,10 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// 🔴 اسم البكت الصحيح
 const BUCKET_NAME = "imeg_user";
-
-// 5MB
 const MAX_SIZE = 5 * 1024 * 1024;
 
 function safeExtFromFile(file: File) {
@@ -22,10 +19,9 @@ async function uploadToSupabase(
   file: File,
   path: string
 ) {
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from(BUCKET_NAME)
     .upload(path, buffer, {
       contentType: file.type || "image/png",
@@ -33,7 +29,6 @@ async function uploadToSupabase(
     });
 
   if (error) throw error;
-  return data;
 }
 
 export async function POST(
@@ -42,7 +37,6 @@ export async function POST(
 ) {
   try {
     const orderId = ctx.params.id;
-
     const formData = await req.formData();
 
     const beforePaymentProof = formData.get("beforePaymentProof");
@@ -64,19 +58,26 @@ export async function POST(
       );
     }
 
-    if (beforePaymentProof.size > MAX_SIZE || afterPaymentProof.size > MAX_SIZE) {
+    if (
+      beforePaymentProof.size > MAX_SIZE ||
+      afterPaymentProof.size > MAX_SIZE
+    ) {
       return NextResponse.json(
         { error: "حجم الملف أكبر من 5MB" },
         { status: 400 }
       );
     }
 
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Missing Supabase environment variables");
+    }
+
     const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // 🔍 جلب الطلب
+    // جلب الطلب
     const { data: order, error: orderError } = await supabase
       .from("Order")
       .select("id, status")
@@ -90,14 +91,13 @@ export async function POST(
       );
     }
 
-    const allowedStatuses = ["AWAITING_PROOFS", "WAITING_PAYMENT"];
+    const allowedStatuses = ["WAITING_PAYMENT", "AWAITING_PROOFS"];
 
     if (!allowedStatuses.includes(order.status)) {
       return NextResponse.json(
         {
           error: "حالة الطلب غير صحيحة",
           currentStatus: order.status,
-          allowed: allowedStatuses,
         },
         { status: 409 }
       );
@@ -105,34 +105,24 @@ export async function POST(
 
     const beforeExt = safeExtFromFile(beforePaymentProof);
     const afterExt = safeExtFromFile(afterPaymentProof);
-
     const basePath = `orders/${orderId}`;
 
-    // ⬆️ رفع الملفات
+    // رفع الملفات
     try {
       await uploadToSupabase(
         supabase,
         beforePaymentProof,
         `${basePath}/before.${beforeExt}`
       );
-    } catch (e: any) {
-      console.error("Supabase upload before error:", e);
-      return NextResponse.json(
-        { error: "فشل رفع صورة الإثبات (قبل)", details: e.message },
-        { status: 500 }
-      );
-    }
-
-    try {
       await uploadToSupabase(
         supabase,
         afterPaymentProof,
         `${basePath}/after.${afterExt}`
       );
     } catch (e: any) {
-      console.error("Supabase upload after error:", e);
+      console.error("Storage upload error:", e);
       return NextResponse.json(
-        { error: "فشل رفع صورة الإثبات (بعد)", details: e.message },
+        { error: "فشل رفع صور الإثبات", details: e.message },
         { status: 500 }
       );
     }
@@ -145,23 +135,33 @@ export async function POST(
       .from(BUCKET_NAME)
       .getPublicUrl(`${basePath}/after.${afterExt}`);
 
-    // 💾 تحديث الطلب
-    await supabase
+    // تحديث الطلب (أسماء الأعمدة الصحيحة)
+    const { error: updateError } = await supabase
       .from("Order")
       .update({
-        before_payment_proof: beforeUrl.publicUrl,
-        after_payment_proof: afterUrl.publicUrl,
-        transaction_id: transactionId,
-        confirmation_text: confirmationText,
+        buyerBeforePaymentProof: beforeUrl.publicUrl,
+        buyerAfterPaymentProof: afterUrl.publicUrl,
+        paypalTransactionId: transactionId,
+        buyerConfirmationText: confirmationText,
         status: "PROOFS_SUBMITTED",
       })
       .eq("id", orderId);
+
+    if (updateError) {
+      console.error("Order update error:", updateError);
+      return NextResponse.json(
+        {
+          error: "فشل تحديث الطلب بعد رفع الإثباتات",
+          details: updateError.message,
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       ok: true,
       message: "تم رفع إثباتات الدفع بنجاح",
     });
-
   } catch (err: any) {
     console.error("Upload payment proof error:", err);
     return NextResponse.json(
