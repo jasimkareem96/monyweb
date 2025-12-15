@@ -8,7 +8,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { OfferAdminFilters } from "@/components/admin/OfferAdminFilters"
-import { OfferAdminActions } from "@/components/admin/OfferAdminActions"
+import OfferAdminActions from "@/components/admin/OfferAdminActions"
 
 const offerTypeLabels: Record<string, string> = {
   PAYPAL_TO_PAYPAL: "PayPal → PayPal",

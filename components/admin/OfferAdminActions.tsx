@@ -1,98 +1,49 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
-export default function OrderReviewActions({
-  orderId,
-  currentStatus,
+export default function OfferAdminActions({
+  offer,
 }: {
-  orderId: string
-  currentStatus: string
+  offer: { id: string; isActive: boolean };
 }) {
-  const [loading, setLoading] = useState(false)
-  const [reason, setReason] = useState("")
-  const [msg, setMsg] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  async function approve() {
-    setLoading(true)
-    setMsg(null)
+  async function toggleActive() {
+    setLoading(true);
+    setMsg(null);
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}/approve-payment`, {
+      const res = await fetch(`/api/admin/offers/${offer.id}/toggle-active`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || "فشل")
-      setMsg("✅ تم قبول الدفع بنجاح")
-      location.reload()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "فشل");
+      setMsg(data?.message || "✅ تم التحديث");
+      location.reload();
     } catch (e: any) {
-      setMsg(`❌ ${e.message}`)
+      setMsg(`❌ ${e.message}`);
     } finally {
-      setLoading(false)
-    }
-  }
-
-  async function reject() {
-    if (!reason.trim()) {
-      setMsg("❌ اكتب سبب الرفض أولاً")
-      return
-    }
-    setLoading(true)
-    setMsg(null)
-    try {
-      const res = await fetch(`/api/admin/orders/${orderId}/reject-payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || "فشل")
-      setMsg("✅ تم رفض الدفع وطلب إعادة رفع الإثباتات")
-      location.reload()
-    } catch (e: any) {
-      setMsg(`❌ ${e.message}`)
-    } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
-    <div className="pt-4 border-t space-y-3">
+    <div className="pt-4 border-t space-y-3 min-w-[220px]">
       <div className="text-sm text-gray-600">
-        الحالة الحالية: <span className="font-semibold">{currentStatus}</span>
+        الحالة:{" "}
+        <span className="font-semibold">
+          {offer.isActive ? "نشط ✅" : "معطل ⛔"}
+        </span>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        <Button onClick={approve} disabled={loading || currentStatus !== "PROOFS_SUBMITTED"}>
-          قبول الدفع
-        </Button>
-
-        <Button
-          variant="destructive"
-          onClick={reject}
-          disabled={loading || currentStatus !== "PROOFS_SUBMITTED"}
-        >
-          رفض الدفع
-        </Button>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">سبب الرفض (يظهر للمستخدم)</label>
-        <textarea
-          className="w-full rounded-md border p-2 text-sm bg-white"
-          rows={3}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="مثال: الإثبات غير واضح / رقم العملية غير مطابق / صورة ناقصة..."
-        />
-      </div>
+      <Button onClick={toggleActive} disabled={loading}>
+        {offer.isActive ? "إيقاف العرض" : "تفعيل العرض"}
+      </Button>
 
       {msg && <div className="text-sm">{msg}</div>}
-
-      <div className="text-xs text-gray-500">
-        * الأزرار تعمل فقط عندما تكون الحالة PROOFS_SUBMITTED
-      </div>
     </div>
-  )
+  );
 }
