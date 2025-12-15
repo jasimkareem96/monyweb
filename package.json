@@ -7,16 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-
     "postinstall": "prisma generate",
-
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/create-default-users.ts",
     "db:reset-password": "tsx scripts/reset-user-password.ts",
-
     "generate:secrets": "node scripts/generate-secrets.js"
   },
   "dependencies": {
@@ -27,8 +24,10 @@
     "@radix-ui/react-select": "^2.0.6",
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-toast": "^1.1.5",
+    "@supabase/supabase-js": "^2.87.1",
     "@upstash/ratelimit": "^2.0.7",
     "@upstash/redis": "^1.35.8",
+    "autoprefixer": "^10.4.16",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
@@ -39,6 +38,7 @@
     "lucide-react": "^0.462.0",
     "next": "14.2.35",
     "next-auth": "^4.24.13",
+    "postcss": "^8.4.32",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -48,8 +48,6 @@
     "speakeasy": "^2.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^3.4.19",
-    "postcss": "^8.4.32",
-    "autoprefixer": "^10.4.16",
     "zod": "^3.25.76"
   },
   "devDependencies": {
