@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import OrderFilters from "@/components/admin/OrderFilters"
 
 const statusLabels: Record<string, string> = {
   PENDING_QUOTE: "في انتظار التأكيد",
@@ -104,9 +103,6 @@ export default async function AdminOrdersPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* الفلاتر */}
-      <OrderFilters />
 
       {/* تنبيه للأدمن */}
       <div className="rounded-lg border bg-white p-4 text-sm text-gray-600">
