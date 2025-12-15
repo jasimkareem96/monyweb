@@ -1,282 +1,172 @@
-import { NextResponse } from "next/server"
-import { NextRequest } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { createNotification } from "@/lib/notifications"
-import { validateCSRF } from "@/lib/csrf"
-import { withRateLimit } from "@/middleware/rate-limit"
-import { fileTypeFromBuffer } from "file-type"
-import sharp from "sharp"
-import { randomBytes } from "crypto"
-import { createClient } from "@supabase/supabase-js"
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-// مهم: حتى Vercel يشغلها Node (لأن sharp يحتاج Node runtime)
-export const runtime = "nodejs"
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// Allowed MIME types for images
-const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]
+// 🔴 اسم البكت الصحيح
+const BUCKET_NAME = "imeg_user";
 
-// Dangerous file extensions to block
-const DANGEROUS_EXTENSIONS = [
-  ".exe",
-  ".bat",
-  ".cmd",
-  ".com",
-  ".pif",
-  ".scr",
-  ".vbs",
-  ".js",
-  ".jar",
-  ".php",
-  ".asp",
-  ".aspx",
-  ".jsp",
-  ".html",
-  ".htm",
-  ".sh",
-]
+// 5MB
+const MAX_SIZE = 5 * 1024 * 1024;
 
-// اسم البكت الموجود عندك في Supabase Storage
-const BUCKET_NAME = "img_user"
+function safeExtFromFile(file: File) {
+  const name = file.name || "proof.png";
+  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "png";
+  const blocked = ["exe", "bat", "cmd", "js", "sh", "php", "html"];
+  return blocked.includes(ext) ? "png" : ext;
+}
+
+async function uploadToSupabase(
+  supabase: any,
+  file: File,
+  path: string
+) {
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET_NAME)
+    .upload(path, buffer, {
+      contentType: file.type || "image/png",
+      upsert: true,
+    });
+
+  if (error) throw error;
+  return data;
+}
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  req: NextRequest,
+  ctx: { params: { id: string } }
 ) {
-  return withRateLimit(
-    request,
-    async () => {
-      try {
-        // Await params in Next.js 14 App Router
-        const { id } = await params
+  try {
+    const orderId = ctx.params.id;
 
-        // Basic path traversal guard (id is used as folder name)
-        if (!id || id.includes("..") || id.includes("/") || id.includes("\\")) {
-          return NextResponse.json({ error: "معرف الطلب غير صحيح" }, { status: 400 })
-        }
+    const formData = await req.formData();
 
-        // Validate CSRF token
-        const csrfValidation = await validateCSRF(request)
-        if (!csrfValidation.valid) {
-          return NextResponse.json({ error: "CSRF token غير صحيح" }, { status: 403 })
-        }
+    const beforePaymentProof = formData.get("beforePaymentProof");
+    const afterPaymentProof = formData.get("afterPaymentProof");
+    const transactionId = formData.get("transactionId")?.toString() || "";
+    const confirmationText = formData.get("confirmationText")?.toString() || "";
 
-        const session = await getServerSession(authOptions)
-        if (!session || session.user.role !== "BUYER") {
-          return NextResponse.json({ error: "غير مصرح" }, { status: 401 })
-        }
+    if (!(beforePaymentProof instanceof File)) {
+      return NextResponse.json(
+        { error: "ملف إثبات الدفع (قبل) غير موجود" },
+        { status: 400 }
+      );
+    }
 
-        const formData = await request.formData()
-        const beforePaymentProof = formData.get("beforePaymentProof") as File
-        const afterPaymentProof = formData.get("afterPaymentProof") as File
-        const transactionId = formData.get("transactionId") as string
-        const confirmationText = formData.get("confirmationText") as string
+    if (!(afterPaymentProof instanceof File)) {
+      return NextResponse.json(
+        { error: "ملف إثبات الدفع (بعد) غير موجود" },
+        { status: 400 }
+      );
+    }
 
-        if (!beforePaymentProof || !afterPaymentProof || !transactionId || !confirmationText) {
-          return NextResponse.json({ error: "جميع الحقول مطلوبة" }, { status: 400 })
-        }
+    if (beforePaymentProof.size > MAX_SIZE || afterPaymentProof.size > MAX_SIZE) {
+      return NextResponse.json(
+        { error: "حجم الملف أكبر من 5MB" },
+        { status: 400 }
+      );
+    }
 
-        // Validate file sizes (5MB max)
-        if (
-          beforePaymentProof.size > 5 * 1024 * 1024 ||
-          afterPaymentProof.size > 5 * 1024 * 1024
-        ) {
-          return NextResponse.json(
-            { error: "حجم الملف يجب أن يكون أقل من 5 ميجابايت" },
-            { status: 400 }
-          )
-        }
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-        // Validate file sizes (minimum 1KB)
-        if (beforePaymentProof.size < 1024 || afterPaymentProof.size < 1024) {
-          return NextResponse.json({ error: "الملف صغير جداً" }, { status: 400 })
-        }
+    // 🔍 جلب الطلب
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("id, status")
+      .eq("id", orderId)
+      .single();
 
-        // Validate transaction ID
-        if (
-          typeof transactionId !== "string" ||
-          transactionId.trim().length === 0 ||
-          transactionId.length > 100
-        ) {
-          return NextResponse.json({ error: "معرف المعاملة غير صحيح" }, { status: 400 })
-        }
+    if (orderError || !order) {
+      return NextResponse.json(
+        { error: "الطلب غير موجود" },
+        { status: 404 }
+      );
+    }
 
-        // Validate confirmation text
-        if (
-          typeof confirmationText !== "string" ||
-          confirmationText.trim().length === 0 ||
-          confirmationText.length > 500
-        ) {
-          return NextResponse.json({ error: "نص التأكيد غير صحيح" }, { status: 400 })
-        }
+    const allowedStatuses = ["AWAITING_PROOFS", "WAITING_PAYMENT"];
 
-        // Helper function to validate and process image
-        const validateAndProcessImage = async (file: File) => {
-          // Check file extension
-          const fileExtension = "." + (file.name.split(".").pop()?.toLowerCase() || "")
+    if (!allowedStatuses.includes(order.status)) {
+      return NextResponse.json(
+        {
+          error: "حالة الطلب غير صحيحة",
+          currentStatus: order.status,
+          allowed: allowedStatuses,
+        },
+        { status: 409 }
+      );
+    }
 
-          // Block dangerous extensions
-          if (DANGEROUS_EXTENSIONS.includes(fileExtension)) {
-            throw new Error(`نوع الملف غير مسموح: ${fileExtension}`)
-          }
+    const beforeExt = safeExtFromFile(beforePaymentProof);
+    const afterExt = safeExtFromFile(afterPaymentProof);
 
-          const bytes = await file.arrayBuffer()
-          const buffer = Buffer.from(bytes)
+    const basePath = `orders/${orderId}`;
 
-          // Validate MIME type from file header
-          const fileType = await fileTypeFromBuffer(buffer)
-          if (!fileType || !fileType.mime.startsWith("image/")) {
-            throw new Error("الملف يجب أن يكون صورة")
-          }
+    // ⬆️ رفع الملفات
+    try {
+      await uploadToSupabase(
+        supabase,
+        beforePaymentProof,
+        `${basePath}/before.${beforeExt}`
+      );
+    } catch (e: any) {
+      console.error("Supabase upload before error:", e);
+      return NextResponse.json(
+        { error: "فشل رفع صورة الإثبات (قبل)", details: e.message },
+        { status: 500 }
+      );
+    }
 
-          if (!ALLOWED_MIME_TYPES.includes(fileType.mime)) {
-            throw new Error(`نوع الصورة غير مدعوم: ${fileType.mime}`)
-          }
+    try {
+      await uploadToSupabase(
+        supabase,
+        afterPaymentProof,
+        `${basePath}/after.${afterExt}`
+      );
+    } catch (e: any) {
+      console.error("Supabase upload after error:", e);
+      return NextResponse.json(
+        { error: "فشل رفع صورة الإثبات (بعد)", details: e.message },
+        { status: 500 }
+      );
+    }
 
-          // Process and optimize image using Sharp -> نحولها JPG دائمًا
-          const processedImage = await sharp(buffer)
-            .resize(1920, 1920, {
-              fit: "inside",
-              withoutEnlargement: true,
-            })
-            .jpeg({
-              quality: 85,
-              progressive: true,
-              mozjpeg: true,
-            })
-            .toBuffer()
+    const { data: beforeUrl } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(`${basePath}/before.${beforeExt}`);
 
-          return processedImage
-        }
+    const { data: afterUrl } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(`${basePath}/after.${afterExt}`);
 
-        // Validate and process both images
-        const beforeProcessed = await validateAndProcessImage(beforePaymentProof)
-        const afterProcessed = await validateAndProcessImage(afterPaymentProof)
+    // 💾 تحديث الطلب
+    await supabase
+      .from("orders")
+      .update({
+        before_payment_proof: beforeUrl.publicUrl,
+        after_payment_proof: afterUrl.publicUrl,
+        transaction_id: transactionId,
+        confirmation_text: confirmationText,
+        status: "PROOFS_SUBMITTED",
+      })
+      .eq("id", orderId);
 
-        // Get order
-        const order = await prisma.order.findUnique({
-          where: { id },
-        })
+    return NextResponse.json({
+      ok: true,
+      message: "تم رفع إثباتات الدفع بنجاح",
+    });
 
-        if (!order || order.buyerId !== session.user.id) {
-          return NextResponse.json(
-            { error: "الطلب غير موجود أو غير مصرح" },
-            { status: 404 }
-          )
-        }
-
-        // حالة الطلب يجب أن تكون بمرحلة انتظار الدفع/رفع الإثبات
-        // هذا يمنع رفع إثباتات في مراحل أخرى مثل بعد الإلغاء/الإغلاق أو أثناء التنفيذ
-        if (order.status === "PENDING_QUOTE") {
-          return NextResponse.json(
-            {
-              error: "لا يمكن رفع إثبات الدفع قبل تأكيد الطلب",
-              currentStatus: order.status,
-              allowed: ["WAITING_PAYMENT"],
-              hint: "نفّذ تأكيد الطلب أولاً عبر /api/orders/{id}/confirm ثم أعد المحاولة",
-            },
-            { status: 409 }
-          )
-        }
-
-        if (order.status !== "WAITING_PAYMENT") {
-          return NextResponse.json(
-            {
-              error: "حالة الطلب غير صحيحة",
-              currentStatus: order.status,
-              allowed: ["WAITING_PAYMENT"],
-            },
-            { status: 409 }
-          )
-        }
-
-        // ---- Supabase Storage Upload (بدل حفظ الملفات على public) ----
-        const SUPABASE_URL = process.env.SUPABASE_URL
-        const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-        if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-          throw new Error("SUPABASE_URL أو SUPABASE_SERVICE_ROLE_KEY غير موجودة في Environment Variables")
-        }
-
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-        const timestamp = Date.now()
-        const randomString = randomBytes(12).toString("hex")
-
-        // نخزن داخل فولدر داخل البكت
-        const folder = `payment_proofs/${id}`
-        const beforeFileName = `before-${timestamp}-${randomString}.jpg`
-        const afterFileName = `after-${timestamp}-${randomString}.jpg`
-
-        const beforePath = `${folder}/${beforeFileName}`
-        const afterPath = `${folder}/${afterFileName}`
-
-        // Upload before
-        const up1 = await supabase.storage.from(BUCKET_NAME).upload(beforePath, beforeProcessed, {
-          contentType: "image/jpeg",
-          upsert: false,
-        })
-        if (up1.error) {
-          console.error("Supabase upload before error:", up1.error)
-          throw new Error("فشل رفع صورة الإثبات (قبل)")
-        }
-
-        // Upload after
-        const up2 = await supabase.storage.from(BUCKET_NAME).upload(afterPath, afterProcessed, {
-          contentType: "image/jpeg",
-          upsert: false,
-        })
-        if (up2.error) {
-          console.error("Supabase upload after error:", up2.error)
-          throw new Error("فشل رفع صورة الإثبات (بعد)")
-        }
-
-        // Get URLs
-        const beforeUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(beforePath).data.publicUrl
-        const afterUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl(afterPath).data.publicUrl
-
-        // Update order
-        await prisma.order.update({
-          where: { id },
-          data: {
-            buyerBeforePaymentProof: beforeUrl,
-            buyerAfterPaymentProof: afterUrl,
-            paypalTransactionId: transactionId,
-            buyerConfirmationText: confirmationText,
-            status: "ESCROWED",
-          },
-        })
-
-        // Create notification for merchant
-        await createNotification({
-          userId: order.merchantId,
-          type: "ORDER_STATUS_CHANGED" as const,
-          title: "تم استلام الدفع",
-          message: `تم استلام إثبات الدفع للطلب #${order.id.slice(0, 8)}. يرجى البدء بتنفيذ العملية`,
-          link: `/orders/${order.id}`,
-        })
-
-        return NextResponse.json({
-          success: true,
-          message: "تم رفع الإثباتات بنجاح",
-          beforeUrl,
-          afterUrl,
-        })
-      } catch (error: any) {
-        console.error("Upload payment proof error:", error)
-        return NextResponse.json(
-          { error: error.message || "حدث خطأ أثناء رفع الإثباتات" },
-          { status: 500 }
-        )
-      }
-    },
-    { limit: 5, window: 60000 } // 5 uploads per minute
-  )
+  } catch (err: any) {
+    console.error("Upload payment proof error:", err);
+    return NextResponse.json(
+      { error: "خطأ غير متوقع", details: err.message },
+      { status: 500 }
+    );
+  }
 }
